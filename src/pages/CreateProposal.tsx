@@ -1,450 +1,515 @@
 
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useToast } from "@/hooks/use-toast";
 import Layout from '@/components/Layout';
-import ServiceItem from '@/components/ServiceItem';
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import {
-  ArrowLeft,
-  ArrowRight,
-  CheckCircle,
-  ChevronRight,
-  Clock,
-  FileText,
-  Mail,
-  Plus,
-  User,
-} from 'lucide-react';
-import { cn } from '@/lib/utils';
-import { useToast } from '@/hooks/use-toast';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Checkbox } from '@/components/ui/checkbox';
+import { AlertCircle, ArrowLeft, Eye, Save, SendHorizontal, Plus, Trash2, FileText } from 'lucide-react';
 
-// Mock data
-const mockClients = [
-  { id: '1', name: 'Empresa ABC Ltda' },
-  { id: '2', name: 'Studio Design' },
-  { id: '3', name: 'Tech Solutions' },
-  { id: '4', name: 'Café Gourmet' },
+// Serviços disponíveis para seleção
+const availableServices = [
+  { id: 1, name: 'Gestão de Google Ads', description: 'Criação, gestão e otimização de campanhas no Google Ads.', price: 1200 },
+  { id: 2, name: 'Gestão de Redes Sociais', description: 'Criação de conteúdo e gestão de perfis em redes sociais.', price: 1500 },
+  { id: 3, name: 'SEO', description: 'Otimização de site para mecanismos de busca.', price: 1800 },
+  { id: 4, name: 'Email Marketing', description: 'Criação e envio de campanhas de email marketing.', price: 800 },
+  { id: 5, name: 'Branding', description: 'Desenvolvimento de identidade visual e estratégia de marca.', price: 3500 },
+  { id: 6, name: 'Desenvolvimento de Site', description: 'Criação de sites responsivos e otimizados.', price: 5000 },
+  { id: 7, name: 'Landing Pages', description: 'Criação de páginas de conversão otimizadas.', price: 1200 },
 ];
 
-const mockServices = [
-  { 
-    id: '1', 
-    name: 'Gestão de Google Ads', 
-    description: 'Gestão completa de campanhas no Google Ads para aumentar o tráfego qualificado e conversões.', 
-    price: 2500, 
-    category: 'Marketing Digital',
-    features: [
-      'Configuração de campanhas',
-      'Otimização contínua',
-      'Relatórios semanais',
-      'Acompanhamento de métricas'
-    ]
-  },
-  { 
-    id: '2', 
-    name: 'Gestão de Redes Sociais', 
-    description: 'Criação de conteúdo e gestão de redes sociais para aumentar o engajamento e a presença digital.', 
-    price: 1800, 
-    category: 'Marketing Digital',
-    features: [
-      'Calendário editorial',
-      'Criação de conteúdo',
-      'Gestão de comunidade',
-      'Relatório mensal'
-    ]
-  },
-  { 
-    id: '3', 
-    name: 'SEO - Otimização para Buscas', 
-    description: 'Otimização de site para mecanismos de busca para aumentar o tráfego orgânico e visibilidade.', 
-    price: 2000, 
-    category: 'Marketing Digital',
-    features: [
-      'Análise de palavras-chave',
-      'Otimização on-page',
-      'Construção de backlinks',
-      'Relatório mensal'
-    ]
-  },
-  { 
-    id: '4', 
-    name: 'Identidade Visual', 
-    description: 'Criação de identidade visual completa para sua marca se destacar no mercado.', 
-    price: 4500, 
-    category: 'Branding',
-    features: [
-      'Logo e variações',
-      'Paleta de cores',
-      'Tipografia',
-      'Manual de marca'
-    ]
-  },
+// Lista de clientes disponíveis para seleção (simulando dados)
+const availableClients = [
+  { id: 1, name: 'Empresa ABC', email: 'contato@empresaabc.com' },
+  { id: 2, name: 'Studio Design', email: 'contato@studiodesign.com' },
+  { id: 3, name: 'Tech Solutions', email: 'contato@techsolutions.com' },
+  { id: 4, name: 'Café Gourmet', email: 'contato@cafegourmet.com' },
 ];
+
+// Interface para o serviço selecionado
+interface SelectedService {
+  id: number;
+  name: string;
+  description: string;
+  price: number;
+  quantity: number;
+  observations?: string;
+}
 
 const CreateProposal = () => {
-  const [currentStep, setCurrentStep] = useState(1);
-  const [selectedClient, setSelectedClient] = useState('');
-  const [selectedServices, setSelectedServices] = useState<string[]>([]);
-  const [discount, setDiscount] = useState(0);
   const navigate = useNavigate();
   const { toast } = useToast();
   
-  const totalBeforeDiscount = selectedServices.reduce((total, serviceId) => {
-    const service = mockServices.find(s => s.id === serviceId);
-    return total + (service?.price || 0);
-  }, 0);
+  // Estados para o formulário
+  const [activeTab, setActiveTab] = useState('info');
+  const [clientId, setClientId] = useState<string>('');
+  const [title, setTitle] = useState('Proposta Comercial');
+  const [validity, setValidity] = useState('15');
+  const [introduction, setIntroduction] = useState('Agradecemos a oportunidade de apresentar nossa proposta. Abaixo, detalhamos os serviços oferecidos conforme discutido em nossa reunião.');
+  const [selectedServices, setSelectedServices] = useState<SelectedService[]>([]);
+  const [discount, setDiscount] = useState<string>('0');
+  const [taxPercentage, setTaxPercentage] = useState<string>('0');
+  const [includeTax, setIncludeTax] = useState(false);
+  const [paymentTerms, setPaymentTerms] = useState('Pagamento em até 15 dias após a aprovação da proposta.');
   
-  const discountAmount = (totalBeforeDiscount * discount) / 100;
-  const totalAfterDiscount = totalBeforeDiscount - discountAmount;
+  // Cálculos de valores
+  const subtotal = selectedServices.reduce((acc, service) => acc + (service.price * service.quantity), 0);
+  const discountValue = (parseFloat(discount) / 100) * subtotal;
+  const totalBeforeTax = subtotal - discountValue;
+  const taxValue = includeTax ? (parseFloat(taxPercentage) / 100) * totalBeforeTax : 0;
+  const total = totalBeforeTax + taxValue;
   
-  const handleToggleService = (serviceId: string) => {
-    setSelectedServices(prev => 
-      prev.includes(serviceId) 
-        ? prev.filter(id => id !== serviceId) 
-        : [...prev, serviceId]
-    );
+  // Funções para gerenciar serviços
+  const addService = (serviceId: string) => {
+    const serviceToAdd = availableServices.find(s => s.id === parseInt(serviceId));
+    if (!serviceToAdd) return;
+    
+    const newService: SelectedService = {
+      ...serviceToAdd,
+      quantity: 1,
+      observations: ''
+    };
+    
+    setSelectedServices([...selectedServices, newService]);
   };
   
-  const handleNext = () => {
-    if (currentStep === 1 && !selectedClient) {
+  const removeService = (index: number) => {
+    const updatedServices = [...selectedServices];
+    updatedServices.splice(index, 1);
+    setSelectedServices(updatedServices);
+  };
+  
+  const updateServiceQuantity = (index: number, quantity: number) => {
+    if (quantity < 1) return;
+    
+    const updatedServices = [...selectedServices];
+    updatedServices[index].quantity = quantity;
+    setSelectedServices(updatedServices);
+  };
+  
+  const updateServiceObservations = (index: number, observations: string) => {
+    const updatedServices = [...selectedServices];
+    updatedServices[index].observations = observations;
+    setSelectedServices(updatedServices);
+  };
+  
+  // Função para salvar a proposta
+  const saveProposal = (asDraft: boolean = true) => {
+    if (!clientId) {
       toast({
-        title: "Selecione um cliente",
-        description: "É necessário selecionar um cliente para continuar.",
+        title: "Erro ao salvar",
+        description: "Selecione um cliente para a proposta.",
         variant: "destructive",
       });
       return;
     }
     
-    if (currentStep === 2 && selectedServices.length === 0) {
+    if (selectedServices.length === 0) {
       toast({
-        title: "Selecione um serviço",
-        description: "É necessário selecionar pelo menos um serviço para continuar.",
+        title: "Erro ao salvar",
+        description: "Adicione pelo menos um serviço à proposta.",
         variant: "destructive",
       });
       return;
     }
     
-    setCurrentStep(prev => Math.min(prev + 1, 4));
+    // Simulando o salvamento
+    toast({
+      title: asDraft ? "Rascunho salvo" : "Proposta salva",
+      description: asDraft 
+        ? "Sua proposta foi salva como rascunho." 
+        : "Sua proposta foi salva com sucesso.",
+    });
+    
+    if (!asDraft) {
+      navigate('/dashboard');
+    }
   };
   
-  const handlePrevious = () => {
-    setCurrentStep(prev => Math.max(prev - 1, 1));
+  // Função para simular o envio da proposta por email
+  const sendProposal = () => {
+    if (!clientId) {
+      toast({
+        title: "Erro ao enviar",
+        description: "Selecione um cliente para a proposta.",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    if (selectedServices.length === 0) {
+      toast({
+        title: "Erro ao enviar",
+        description: "Adicione pelo menos um serviço à proposta.",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    toast({
+      title: "Proposta enviada",
+      description: "A proposta foi enviada ao cliente por email.",
+    });
+    
+    navigate('/dashboard');
   };
   
-  const handlePreview = () => {
+  // Função para prévia da proposta
+  const previewProposal = () => {
+    if (!clientId) {
+      toast({
+        title: "Não é possível visualizar",
+        description: "Selecione um cliente para a proposta.",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    if (selectedServices.length === 0) {
+      toast({
+        title: "Não é possível visualizar",
+        description: "Adicione pelo menos um serviço à proposta.",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    // Simulamos a navegação para a página de prévia
+    // Na implementação real, passaríamos os dados da proposta
     navigate('/preview-proposal');
   };
   
-  // Format currency
-  const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat('pt-BR', {
-      style: 'currency',
-      currency: 'BRL'
-    }).format(value);
-  };
-  
-  // Get step status (completed, current, upcoming)
-  const getStepStatus = (step: number) => {
-    if (step < currentStep) return "completed";
-    if (step === currentStep) return "current";
-    return "upcoming";
-  };
-  
-  // Step component
-  const Step = ({ number, title }: { number: number; title: string }) => {
-    const status = getStepStatus(number);
-    
-    return (
-      <div className="flex items-center">
-        <div className={cn(
-          "size-8 rounded-full flex items-center justify-center mr-3 shrink-0 transition-colors",
-          status === "completed" ? "bg-primary text-primary-foreground" :
-          status === "current" ? "bg-primary/10 text-primary border border-primary" :
-          "bg-secondary text-muted-foreground"
-        )}>
-          {status === "completed" ? <CheckCircle className="size-4" /> : number}
-        </div>
-        <div className="flex flex-col">
-          <span className={cn(
-            "font-medium",
-            status === "completed" ? "text-primary" :
-            status === "current" ? "text-foreground" :
-            "text-muted-foreground"
-          )}>
-            {title}
-          </span>
-        </div>
-        {number < 4 && (
-          <ChevronRight className={cn(
-            "mx-3 size-4",
-            status === "completed" ? "text-primary" : "text-muted-foreground"
-          )} />
-        )}
-      </div>
-    );
-  };
-
   return (
     <Layout>
-      <div className="page-container max-w-5xl mx-auto">
-        <div className="mb-8">
-          <Button 
-            variant="ghost" 
-            className="mb-4" 
-            onClick={() => navigate(-1)}
-          >
-            <ArrowLeft className="mr-2 size-4" />
+      <div className="page-container">
+        <div className="flex items-center mb-6">
+          <Button variant="ghost" onClick={() => navigate('/dashboard')} className="mr-4">
+            <ArrowLeft className="size-4 mr-2" />
             Voltar
           </Button>
           <h1 className="text-3xl font-bold">Nova Proposta</h1>
-          <p className="text-muted-foreground mt-2">
-            Crie uma proposta personalizada para seu cliente
-          </p>
         </div>
         
-        {/* Progress steps */}
-        <div className="flex flex-wrap justify-between mb-8 px-1">
-          <Step number={1} title="Cliente" />
-          <Step number={2} title="Serviços" />
-          <Step number={3} title="Detalhes" />
-          <Step number={4} title="Revisão" />
-        </div>
-        
-        <Card className="mb-8">
-          {currentStep === 1 && (
-            <>
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+          <TabsList className="mb-6">
+            <TabsTrigger value="info">Informações Gerais</TabsTrigger>
+            <TabsTrigger value="services">Serviços</TabsTrigger>
+            <TabsTrigger value="payment">Pagamento e Termos</TabsTrigger>
+          </TabsList>
+          
+          {/* Informações Gerais */}
+          <TabsContent value="info">
+            <Card>
               <CardHeader>
-                <CardTitle className="flex items-center">
-                  <User className="mr-2 size-5" />
-                  Selecione o Cliente
-                </CardTitle>
-                <CardDescription>
-                  Escolha para qual cliente esta proposta será criada
-                </CardDescription>
+                <CardTitle>Informações da Proposta</CardTitle>
+                <CardDescription>Preencha as informações básicas da proposta</CardDescription>
               </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="client">Cliente</Label>
-                  <Select value={selectedClient} onValueChange={setSelectedClient}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Selecione um cliente" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {mockClients.map(client => (
-                        <SelectItem key={client.id} value={client.id}>
-                          {client.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+              <CardContent className="space-y-6">
+                <div className="space-y-4">
+                  <div>
+                    <Label htmlFor="client">Cliente</Label>
+                    <Select value={clientId} onValueChange={setClientId}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Selecione um cliente" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {availableClients.map(client => (
+                          <SelectItem key={client.id} value={client.id.toString()}>
+                            {client.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  
+                  <div>
+                    <Label htmlFor="title">Título da Proposta</Label>
+                    <Input 
+                      id="title" 
+                      value={title} 
+                      onChange={(e) => setTitle(e.target.value)}
+                    />
+                  </div>
+                  
+                  <div>
+                    <Label htmlFor="validity">Validade (dias)</Label>
+                    <Input 
+                      id="validity" 
+                      type="number" 
+                      value={validity} 
+                      onChange={(e) => setValidity(e.target.value)}
+                    />
+                  </div>
+                  
+                  <div>
+                    <Label htmlFor="introduction">Introdução</Label>
+                    <Textarea 
+                      id="introduction" 
+                      value={introduction} 
+                      onChange={(e) => setIntroduction(e.target.value)}
+                      rows={4}
+                    />
+                  </div>
+                </div>
+              </CardContent>
+              <CardFooter className="justify-between">
+                <Button variant="outline" onClick={() => navigate('/dashboard')}>Cancelar</Button>
+                <Button onClick={() => setActiveTab('services')}>
+                  Próximo
+                </Button>
+              </CardFooter>
+            </Card>
+          </TabsContent>
+          
+          {/* Serviços */}
+          <TabsContent value="services">
+            <Card>
+              <CardHeader>
+                <CardTitle>Serviços Oferecidos</CardTitle>
+                <CardDescription>Adicione os serviços que farão parte desta proposta</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                <div className="flex gap-4">
+                  <div className="flex-1">
+                    <Label htmlFor="service">Adicionar Serviço</Label>
+                    <Select onValueChange={addService}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Selecione um serviço" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {availableServices.map(service => (
+                          <SelectItem key={service.id} value={service.id.toString()}>
+                            {service.name} - {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(service.price)}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="flex items-end">
+                    <Button variant="outline" className="mb-[1px]" onClick={() => addService('1')}>
+                      <Plus className="size-4 mr-2" />
+                      Adicionar
+                    </Button>
+                  </div>
                 </div>
                 
-                <div className="flex justify-between items-center border rounded-md p-4 bg-secondary/30">
-                  <div className="flex items-center">
-                    <Plus className="size-5 mr-2 text-primary" />
-                    <span>Não encontrou o cliente?</span>
+                {selectedServices.length > 0 ? (
+                  <div className="space-y-4 mt-6">
+                    {selectedServices.map((service, index) => (
+                      <Card key={index} className="overflow-hidden">
+                        <div className="p-4 bg-secondary/50">
+                          <div className="flex justify-between items-center">
+                            <h4 className="font-medium">{service.name}</h4>
+                            <Button variant="ghost" size="icon" onClick={() => removeService(index)}>
+                              <Trash2 className="size-4 text-destructive" />
+                            </Button>
+                          </div>
+                          <p className="text-sm text-muted-foreground">{service.description}</p>
+                        </div>
+                        <div className="p-4 space-y-4">
+                          <div className="flex gap-4">
+                            <div className="w-1/3">
+                              <Label htmlFor={`quantity-${index}`}>Quantidade</Label>
+                              <div className="flex items-center">
+                                <Button 
+                                  variant="outline" 
+                                  size="icon" 
+                                  onClick={() => updateServiceQuantity(index, service.quantity - 1)}
+                                  disabled={service.quantity <= 1}
+                                >
+                                  -
+                                </Button>
+                                <Input 
+                                  id={`quantity-${index}`} 
+                                  type="number" 
+                                  className="mx-2 text-center"
+                                  value={service.quantity} 
+                                  onChange={(e) => updateServiceQuantity(index, parseInt(e.target.value) || 1)}
+                                  min="1"
+                                />
+                                <Button 
+                                  variant="outline" 
+                                  size="icon" 
+                                  onClick={() => updateServiceQuantity(index, service.quantity + 1)}
+                                >
+                                  +
+                                </Button>
+                              </div>
+                            </div>
+                            <div className="w-2/3">
+                              <Label htmlFor={`price-${index}`}>Valor Total</Label>
+                              <Input 
+                                id={`price-${index}`} 
+                                value={new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(service.price * service.quantity)}
+                                disabled
+                              />
+                            </div>
+                          </div>
+                          <div>
+                            <Label htmlFor={`observations-${index}`}>Observações</Label>
+                            <Textarea 
+                              id={`observations-${index}`} 
+                              value={service.observations || ''} 
+                              onChange={(e) => updateServiceObservations(index, e.target.value)}
+                              placeholder="Adicione observações específicas para este serviço"
+                              rows={2}
+                            />
+                          </div>
+                        </div>
+                      </Card>
+                    ))}
                   </div>
-                  <Button variant="outline" size="sm">
-                    Adicionar Cliente
-                  </Button>
-                </div>
+                ) : (
+                  <div className="flex flex-col items-center justify-center py-8 text-center bg-secondary/30 rounded-lg">
+                    <FileText className="size-12 text-muted-foreground mb-2" />
+                    <h3 className="text-lg font-medium">Nenhum serviço adicionado</h3>
+                    <p className="text-sm text-muted-foreground mt-1">
+                      Adicione serviços à proposta usando o seletor acima.
+                    </p>
+                  </div>
+                )}
+                
+                {selectedServices.length > 0 && (
+                  <div className="mt-6 p-4 border rounded-lg bg-secondary/20">
+                    <div className="text-right">
+                      <p className="text-sm text-muted-foreground">Subtotal: {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(subtotal)}</p>
+                    </div>
+                  </div>
+                )}
               </CardContent>
-            </>
-          )}
+              <CardFooter className="justify-between">
+                <Button variant="outline" onClick={() => setActiveTab('info')}>Voltar</Button>
+                <Button onClick={() => setActiveTab('payment')}>
+                  Próximo
+                </Button>
+              </CardFooter>
+            </Card>
+          </TabsContent>
           
-          {currentStep === 2 && (
-            <>
+          {/* Pagamento e Termos */}
+          <TabsContent value="payment">
+            <Card>
               <CardHeader>
-                <CardTitle className="flex items-center">
-                  <FileText className="mr-2 size-5" />
-                  Selecione os Serviços
-                </CardTitle>
-                <CardDescription>
-                  Escolha os serviços que farão parte desta proposta
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                  {mockServices.map(service => (
-                    <ServiceItem 
-                      key={service.id} 
-                      id={service.id}
-                      name={service.name}
-                      description={service.description}
-                      price={service.price}
-                      category={service.category}
-                      features={service.features}
-                      isSelected={selectedServices.includes(service.id)}
-                      onSelect={() => handleToggleService(service.id)}
-                    />
-                  ))}
-                </div>
-              </CardContent>
-            </>
-          )}
-          
-          {currentStep === 3 && (
-            <>
-              <CardHeader>
-                <CardTitle className="flex items-center">
-                  <Clock className="mr-2 size-5" />
-                  Detalhes da Proposta
-                </CardTitle>
-                <CardDescription>
-                  Adicione informações específicas para esta proposta
-                </CardDescription>
+                <CardTitle>Pagamento e Termos</CardTitle>
+                <CardDescription>Configure os detalhes de pagamento e finalize a proposta</CardDescription>
               </CardHeader>
               <CardContent className="space-y-6">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div className="space-y-2">
-                    <Label htmlFor="title">Título da Proposta</Label>
-                    <Input id="title" placeholder="Ex: Proposta de Marketing Digital" />
+                  <div>
+                    <Label htmlFor="discount">Desconto (%)</Label>
+                    <Input 
+                      id="discount" 
+                      type="number" 
+                      value={discount} 
+                      onChange={(e) => setDiscount(e.target.value)}
+                      min="0"
+                      max="100"
+                    />
                   </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="validity">Validade (dias)</Label>
-                    <Input id="validity" type="number" placeholder="15" />
-                  </div>
-                </div>
-                
-                <div className="space-y-2">
-                  <Label htmlFor="introduction">Introdução</Label>
-                  <Textarea 
-                    id="introduction" 
-                    rows={4} 
-                    placeholder="Uma breve introdução para sua proposta"
-                    defaultValue="Agradecemos a oportunidade de apresentar nossa proposta de serviços. Desenvolvemos soluções personalizadas que atendem às necessidades específicas do seu negócio, visando resultados concretos e mensuráveis."
-                  />
-                </div>
-                
-                <div className="space-y-2">
-                  <Label htmlFor="approach">Abordagem</Label>
-                  <Textarea 
-                    id="approach" 
-                    rows={4} 
-                    placeholder="Descreva sua abordagem para este projeto"
-                    defaultValue="Nossa metodologia é baseada em uma análise profunda do seu mercado e público-alvo, seguida pela implementação de estratégias testadas e comprovadas. Trabalhamos de forma transparente e colaborativa, mantendo você informado em cada etapa do processo."
-                  />
-                </div>
-                
-                <div className="space-y-2">
-                  <Label htmlFor="discount">Desconto (%)</Label>
-                  <Input 
-                    id="discount" 
-                    type="number" 
-                    min="0" 
-                    max="100" 
-                    value={discount} 
-                    onChange={(e) => setDiscount(Number(e.target.value))}
-                  />
-                </div>
-              </CardContent>
-            </>
-          )}
-          
-          {currentStep === 4 && (
-            <>
-              <CardHeader>
-                <CardTitle className="flex items-center">
-                  <CheckCircle className="mr-2 size-5" />
-                  Revisão da Proposta
-                </CardTitle>
-                <CardDescription>
-                  Revise todos os detalhes antes de finalizar
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-6">
-                <div className="border rounded-lg overflow-hidden">
-                  <div className="bg-secondary/50 px-6 py-3 font-medium">
-                    Informações Gerais
-                  </div>
-                  <div className="p-6 space-y-4">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div>
-                        <h4 className="text-sm font-medium text-muted-foreground">Cliente</h4>
-                        <p>{mockClients.find(c => c.id === selectedClient)?.name || "Não selecionado"}</p>
-                      </div>
-                      <div>
-                        <h4 className="text-sm font-medium text-muted-foreground">Validade</h4>
-                        <p>15 dias</p>
-                      </div>
+                  
+                  <div className="flex items-end space-x-4">
+                    <div className="flex items-center space-x-2 h-10">
+                      <Checkbox 
+                        id="includeTax" 
+                        checked={includeTax}
+                        onCheckedChange={(checked) => setIncludeTax(checked as boolean)}
+                      />
+                      <Label htmlFor="includeTax">Incluir impostos</Label>
                     </div>
-                  </div>
-                </div>
-                
-                <div className="border rounded-lg overflow-hidden">
-                  <div className="bg-secondary/50 px-6 py-3 font-medium">
-                    Serviços Incluídos
-                  </div>
-                  <div className="divide-y">
-                    {selectedServices.map(serviceId => {
-                      const service = mockServices.find(s => s.id === serviceId);
-                      return service ? (
-                        <div key={service.id} className="p-6 flex justify-between items-center">
-                          <div>
-                            <h4 className="font-medium">{service.name}</h4>
-                            <p className="text-sm text-muted-foreground">{service.category}</p>
-                          </div>
-                          <p className="font-medium">{formatCurrency(service.price)}</p>
-                        </div>
-                      ) : null;
-                    })}
-                  </div>
-                </div>
-                
-                <div className="border rounded-lg overflow-hidden">
-                  <div className="bg-secondary/50 px-6 py-3 font-medium">
-                    Resumo de Valores
-                  </div>
-                  <div className="p-6 space-y-3">
-                    <div className="flex justify-between items-center">
-                      <p className="text-muted-foreground">Subtotal</p>
-                      <p>{formatCurrency(totalBeforeDiscount)}</p>
-                    </div>
-                    {discount > 0 && (
-                      <div className="flex justify-between items-center">
-                        <p className="text-muted-foreground">Desconto ({discount}%)</p>
-                        <p className="text-red-500">- {formatCurrency(discountAmount)}</p>
+                    
+                    {includeTax && (
+                      <div className="flex-1">
+                        <Input 
+                          type="number" 
+                          value={taxPercentage} 
+                          onChange={(e) => setTaxPercentage(e.target.value)}
+                          min="0"
+                          max="100"
+                          placeholder="% de impostos"
+                        />
                       </div>
                     )}
-                    <div className="flex justify-between items-center border-t pt-3 font-bold">
-                      <p>Total</p>
-                      <p>{formatCurrency(totalAfterDiscount)}</p>
-                    </div>
                   </div>
                 </div>
+                
+                <div>
+                  <Label htmlFor="paymentTerms">Condições de Pagamento</Label>
+                  <Textarea 
+                    id="paymentTerms" 
+                    value={paymentTerms} 
+                    onChange={(e) => setPaymentTerms(e.target.value)}
+                    rows={3}
+                  />
+                </div>
+                
+                <div className="mt-6 p-6 border rounded-lg bg-secondary/20 space-y-2">
+                  <div className="flex justify-between">
+                    <span>Subtotal:</span>
+                    <span>{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(subtotal)}</span>
+                  </div>
+                  
+                  <div className="flex justify-between">
+                    <span>Desconto ({discount}%):</span>
+                    <span>-{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(discountValue)}</span>
+                  </div>
+                  
+                  {includeTax && (
+                    <div className="flex justify-between">
+                      <span>Impostos ({taxPercentage}%):</span>
+                      <span>+{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(taxValue)}</span>
+                    </div>
+                  )}
+                  
+                  <div className="pt-2 border-t mt-2 flex justify-between font-bold text-lg">
+                    <span>Total:</span>
+                    <span>{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(total)}</span>
+                  </div>
+                </div>
+                
+                {clientId === '' && (
+                  <div className="flex items-center p-4 rounded-lg border border-yellow-200 bg-yellow-50 text-yellow-800">
+                    <AlertCircle className="size-5 mr-2 flex-shrink-0" />
+                    <p className="text-sm">Selecione um cliente na aba "Informações Gerais" antes de finalizar.</p>
+                  </div>
+                )}
+                
+                {selectedServices.length === 0 && (
+                  <div className="flex items-center p-4 rounded-lg border border-yellow-200 bg-yellow-50 text-yellow-800">
+                    <AlertCircle className="size-5 mr-2 flex-shrink-0" />
+                    <p className="text-sm">Adicione pelo menos um serviço na aba "Serviços" antes de finalizar.</p>
+                  </div>
+                )}
               </CardContent>
-            </>
-          )}
-          
-          <CardFooter className="flex justify-between border-t p-6">
-            {currentStep > 1 ? (
-              <Button variant="outline" onClick={handlePrevious}>
-                <ArrowLeft className="mr-2 size-4" />
-                Anterior
-              </Button>
-            ) : (
-              <div></div>
-            )}
-            
-            {currentStep < 4 ? (
-              <Button onClick={handleNext}>
-                Próximo
-                <ArrowRight className="ml-2 size-4" />
-              </Button>
-            ) : (
-              <Button onClick={handlePreview}>
-                Visualizar Proposta
-                <FileText className="ml-2 size-4" />
-              </Button>
-            )}
-          </CardFooter>
-        </Card>
+              <CardFooter className="justify-between flex-wrap gap-4">
+                <div className="flex gap-2">
+                  <Button variant="outline" onClick={() => setActiveTab('services')}>
+                    Voltar
+                  </Button>
+                  <Button variant="outline" onClick={() => saveProposal(true)}>
+                    <Save className="size-4 mr-2" />
+                    Salvar Rascunho
+                  </Button>
+                </div>
+                <div className="flex gap-2">
+                  <Button variant="outline" onClick={previewProposal}>
+                    <Eye className="size-4 mr-2" />
+                    Visualizar
+                  </Button>
+                  <Button onClick={sendProposal}>
+                    <SendHorizontal className="size-4 mr-2" />
+                    Finalizar e Enviar
+                  </Button>
+                </div>
+              </CardFooter>
+            </Card>
+          </TabsContent>
+        </Tabs>
       </div>
     </Layout>
   );
