@@ -8,7 +8,8 @@ import {
   LayoutDashboard, 
   Users, 
   Settings,
-  ArrowRight
+  ArrowRight,
+  PlayCircle
 } from 'lucide-react';
 
 const Index = () => {
@@ -49,6 +50,13 @@ const Index = () => {
     }
   ];
 
+  const handleDemoClick = () => {
+    toast({
+      title: "Demonstração",
+      description: "O vídeo de demonstração será disponibilizado em breve!",
+    });
+  };
+
   return (
     <div className="min-h-screen flex flex-col">
       {/* Hero Section */}
@@ -74,8 +82,14 @@ const Index = () => {
                   Começar agora
                   <ArrowRight className="ml-2 size-5" />
                 </Button>
-                <Button size="lg" variant="outline" className="font-medium">
+                <Button 
+                  size="lg" 
+                  variant="outline" 
+                  className="font-medium"
+                  onClick={handleDemoClick}
+                >
                   Ver demonstração
+                  <PlayCircle className="ml-2 size-5" />
                 </Button>
               </div>
             </div>
