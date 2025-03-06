@@ -1,136 +1,101 @@
 
-import { useState, useEffect } from 'react';
-import { Link, useLocation } from 'react-router-dom';
-import { ChevronLeft, ChevronRight, LayoutDashboard, Users, FileText, Settings, Menu, X } from 'lucide-react';
-import { Button } from '@/components/ui/button';
+import React from 'react';
+import { NavLink } from 'react-router-dom';
+import { LayoutDashboard, FileText, Users, Package2, Settings, LogOut } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { useIsMobile } from '@/hooks/use-mobile';
+import { Button } from '@/components/ui/button';
+import { useAuth } from '@/contexts/AuthContext';
 
-const Navbar = () => {
-  const [expanded, setExpanded] = useState(true);
-  const [mobileOpen, setMobileOpen] = useState(false);
-  const location = useLocation();
-  const isMobile = useIsMobile();
+const navItems = [
+  {
+    title: 'Dashboard',
+    icon: LayoutDashboard,
+    href: '/dashboard',
+    adminOnly: false
+  },
+  {
+    title: 'Propostas',
+    icon: FileText,
+    href: '/create-proposal',
+    adminOnly: false
+  },
+  {
+    title: 'Clientes',
+    icon: Users,
+    href: '/clients',
+    adminOnly: false
+  },
+  {
+    title: 'Serviços',
+    icon: Package2,
+    href: '/services',
+    adminOnly: false
+  },
+  {
+    title: 'Administração',
+    icon: Settings,
+    href: '/admin',
+    adminOnly: true
+  }
+];
+
+interface NavbarProps {
+  collapsed?: boolean;
+}
+
+const Navbar = ({ collapsed = false }: NavbarProps) => {
+  const { signOut, isAdmin } = useAuth();
   
-  // Close mobile menu when changing routes
-  useEffect(() => {
-    setMobileOpen(false);
-  }, [location.pathname]);
-
-  const navItems = [
-    { path: '/dashboard', name: 'Dashboard', icon: LayoutDashboard },
-    { path: '/clients', name: 'Clientes', icon: Users },
-    { path: '/services', name: 'Serviços', icon: Settings },
-    { path: '/create-proposal', name: 'Nova Proposta', icon: FileText },
-  ];
-
-  const NavLink = ({ item }: { item: typeof navItems[0] }) => {
-    const isActive = location.pathname === item.path;
-    
-    return (
-      <Link 
-        to={item.path}
-        className={cn(
-          "flex items-center gap-2 px-3 py-2 rounded-md transition-all-200",
-          "hover:bg-secondary group",
-          isActive ? "bg-secondary text-primary font-medium" : "text-foreground/80"
-        )}
-      >
-        <item.icon className={cn(
-          "size-5",
-          isActive ? "text-primary" : "text-muted-foreground" 
-        )} />
-        <span className={cn(
-          "transition-opacity duration-200",
-          (isMobile || expanded) ? "opacity-100" : "opacity-0 hidden"
-        )}>
-          {item.name}
-        </span>
-      </Link>
-    );
-  };
-
-  // Desktop sidebar
-  const DesktopNav = () => (
-    <aside className={cn(
-      "hidden md:flex flex-col h-screen sticky top-0 bg-background border-r p-4",
-      "transition-all duration-300 ease-in-out",
-      expanded ? "w-56" : "w-20"
-    )}>
-      <div className="flex items-center justify-between mb-8">
-        {expanded ? (
-          <h1 className="font-semibold text-xl">PropostaApp</h1>
-        ) : (
-          <div className="w-full flex justify-center">
-            <span className="font-bold text-primary text-2xl">P</span>
-          </div>
-        )}
-        <Button 
-          variant="ghost" 
-          size="icon" 
-          onClick={() => setExpanded(prev => !prev)}
-          className="size-8"
-        >
-          {expanded ? <ChevronLeft className="size-4" /> : <ChevronRight className="size-4" />}
-        </Button>
-      </div>
-      
-      <nav className="space-y-2 flex-1">
-        {navItems.map(item => (
-          <NavLink key={item.path} item={item} />
-        ))}
-      </nav>
-      
-      <div className="pt-4 border-t">
-        <Link 
-          to="/settings" 
-          className="flex items-center gap-2 px-3 py-2 text-muted-foreground hover:text-foreground transition-all-200"
-        >
-          <Settings className="size-5" />
-          <span className={expanded ? "" : "hidden"}>Configurações</span>
-        </Link>
-      </div>
-    </aside>
-  );
-
-  // Mobile navigation
-  const MobileNav = () => (
-    <div className="block md:hidden">
-      <div className="flex items-center justify-between p-4 border-b">
-        <h1 className="font-semibold text-xl">PropostaApp</h1>
-        <Button 
-          variant="ghost" 
-          size="icon" 
-          onClick={() => setMobileOpen(prev => !prev)}
-        >
-          {mobileOpen ? <X className="size-5" /> : <Menu className="size-5" />}
-        </Button>
-      </div>
-      
-      {mobileOpen && (
-        <div className="fixed inset-0 z-50 bg-background pt-16 animate-fade-in">
-          <nav className="flex flex-col p-4 space-y-2">
-            {navItems.map(item => (
-              <NavLink key={item.path} item={item} />
-            ))}
-            <Link 
-              to="/settings" 
-              className="flex items-center gap-2 px-3 py-2 text-muted-foreground hover:text-foreground transition-all-200"
-            >
-              <Settings className="size-5" />
-              <span>Configurações</span>
-            </Link>
-          </nav>
-        </div>
-      )}
-    </div>
-  );
-
   return (
-    <>
-      <DesktopNav />
-      <MobileNav />
-    </>
+    <nav className={cn(
+      "h-screen flex flex-col bg-card border-r pt-4 transition-all duration-300",
+      collapsed ? "w-[80px]" : "w-[250px]"
+    )}>
+      <div className="px-4 py-2 mb-4 flex justify-center">
+        {collapsed ? (
+          <span className="text-2xl font-bold text-primary">P</span>
+        ) : (
+          <span className="text-xl font-bold text-primary">PropostaApp</span>
+        )}
+      </div>
+      
+      <div className="flex-1 px-3">
+        <ul className="space-y-1">
+          {navItems.filter(item => !item.adminOnly || isAdmin).map((item) => (
+            <li key={item.href}>
+              <NavLink
+                to={item.href}
+                className={({ isActive }) => cn(
+                  "flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-colors",
+                  {
+                    "bg-primary/10 text-primary": isActive,
+                    "hover:bg-muted text-foreground": !isActive
+                  },
+                  collapsed && "justify-center"
+                )}
+              >
+                <item.icon className="size-5 flex-shrink-0" />
+                {!collapsed && <span className="flex-1">{item.title}</span>}
+              </NavLink>
+            </li>
+          ))}
+        </ul>
+      </div>
+      
+      <div className="border-t p-3">
+        <Button
+          variant="ghost"
+          className={cn(
+            "w-full justify-start text-muted-foreground hover:text-foreground",
+            collapsed && "justify-center"
+          )}
+          onClick={signOut}
+        >
+          <LogOut className="size-5 mr-2" />
+          {!collapsed && "Sair"}
+        </Button>
+      </div>
+    </nav>
   );
 };
 
