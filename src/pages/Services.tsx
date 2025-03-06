@@ -5,13 +5,24 @@ import ServiceItem from '@/components/ServiceItem';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { Plus, Search, Settings, Filter } from 'lucide-react';
+import { Plus, Search, Settings, Filter, AlertTriangle } from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
+
+// Interface for Service
+interface Service {
+  id: string;
+  name: string;
+  description: string;
+  price: number;
+  category: string;
+  features: string[];
+}
 
 // Mock data for services
-const mockServices = [
+const initialServices = [
   { 
     id: '1', 
     name: 'Gestão de Google Ads', 
@@ -93,11 +104,25 @@ const mockServices = [
 ];
 
 const Services = () => {
+  const { toast } = useToast();
   const [searchQuery, setSearchQuery] = useState('');
   const [isAddServiceOpen, setIsAddServiceOpen] = useState(false);
+  const [isEditServiceOpen, setIsEditServiceOpen] = useState(false);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [activeCategory, setActiveCategory] = useState('all');
+  const [services, setServices] = useState<Service[]>(initialServices);
+  const [currentService, setCurrentService] = useState<Service | null>(null);
   
-  const filteredServices = mockServices.filter(service => {
+  // Form state for adding/editing
+  const [formData, setFormData] = useState({
+    name: '',
+    category: '',
+    description: '',
+    price: '',
+    features: ''
+  });
+  
+  const filteredServices = services.filter(service => {
     const queryMatch = service.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
                        service.description.toLowerCase().includes(searchQuery.toLowerCase());
     
@@ -106,7 +131,103 @@ const Services = () => {
     return queryMatch && categoryMatch;
   });
 
-  const categories = ['all', ...new Set(mockServices.map(service => service.category.toLowerCase()))];
+  const categories = ['all', ...new Set(services.map(service => service.category.toLowerCase()))];
+
+  // Handle form input changes
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    const { id, value } = e.target;
+    setFormData(prev => ({ ...prev, [id]: value }));
+  };
+
+  // Open edit dialog
+  const handleEditService = (service: Service) => {
+    setCurrentService(service);
+    setFormData({
+      name: service.name,
+      category: service.category,
+      description: service.description,
+      price: service.price.toString(),
+      features: service.features.join('\n')
+    });
+    setIsEditServiceOpen(true);
+  };
+
+  // Save edited service
+  const handleSaveEdit = () => {
+    if (!currentService) return;
+    
+    const updatedServices = services.map(service => {
+      if (service.id === currentService.id) {
+        return {
+          ...service,
+          name: formData.name,
+          category: formData.category,
+          description: formData.description,
+          price: parseFloat(formData.price),
+          features: formData.features.split('\n').filter(f => f.trim() !== '')
+        };
+      }
+      return service;
+    });
+    
+    setServices(updatedServices);
+    setIsEditServiceOpen(false);
+    
+    toast({
+      title: "Serviço atualizado",
+      description: "O serviço foi atualizado com sucesso.",
+    });
+  };
+
+  // Open delete confirmation dialog
+  const handleDeleteClick = (service: Service) => {
+    setCurrentService(service);
+    setIsDeleteDialogOpen(true);
+  };
+
+  // Confirm deletion
+  const handleConfirmDelete = () => {
+    if (!currentService) return;
+    
+    const updatedServices = services.filter(service => service.id !== currentService.id);
+    setServices(updatedServices);
+    setIsDeleteDialogOpen(false);
+    
+    toast({
+      title: "Serviço excluído",
+      description: "O serviço foi excluído com sucesso.",
+      variant: "destructive"
+    });
+  };
+
+  // Add new service
+  const handleAddService = () => {
+    const newService: Service = {
+      id: (services.length + 1).toString(),
+      name: formData.name,
+      category: formData.category,
+      description: formData.description,
+      price: parseFloat(formData.price) || 0,
+      features: formData.features.split('\n').filter(f => f.trim() !== '')
+    };
+    
+    setServices([...services, newService]);
+    setIsAddServiceOpen(false);
+    
+    // Reset form
+    setFormData({
+      name: '',
+      category: '',
+      description: '',
+      price: '',
+      features: ''
+    });
+    
+    toast({
+      title: "Serviço adicionado",
+      description: "O novo serviço foi adicionado com sucesso.",
+    });
+  };
 
   return (
     <Layout>
@@ -128,39 +249,146 @@ const Services = () => {
             <DialogContent className="sm:max-w-xl">
               <DialogHeader>
                 <DialogTitle>Adicionar Novo Serviço</DialogTitle>
+                <DialogDescription>Preencha os detalhes do novo serviço</DialogDescription>
               </DialogHeader>
               <div className="space-y-4 py-2">
                 <div className="space-y-2">
                   <Label htmlFor="name">Nome do Serviço</Label>
-                  <Input id="name" placeholder="Ex: Gestão de Redes Sociais" />
+                  <Input 
+                    id="name" 
+                    placeholder="Ex: Gestão de Redes Sociais" 
+                    value={formData.name}
+                    onChange={handleInputChange}
+                  />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="category">Categoria</Label>
-                  <Input id="category" placeholder="Ex: Marketing Digital" />
+                  <Input 
+                    id="category" 
+                    placeholder="Ex: Marketing Digital" 
+                    value={formData.category}
+                    onChange={handleInputChange}
+                  />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="description">Descrição</Label>
-                  <Textarea id="description" placeholder="Descreva o serviço oferecido" rows={3} />
+                  <Textarea 
+                    id="description" 
+                    placeholder="Descreva o serviço oferecido" 
+                    rows={3}
+                    value={formData.description}
+                    onChange={handleInputChange}
+                  />
                 </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="price">Preço (R$)</Label>
-                    <Input id="price" type="number" placeholder="0,00" />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="duration">Duração</Label>
-                    <Input id="duration" placeholder="Ex: Mensal" />
-                  </div>
+                <div className="space-y-2">
+                  <Label htmlFor="price">Preço (R$)</Label>
+                  <Input 
+                    id="price" 
+                    type="number" 
+                    placeholder="0,00" 
+                    value={formData.price}
+                    onChange={handleInputChange}
+                  />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="features">Características (uma por linha)</Label>
-                  <Textarea id="features" placeholder="Digite uma característica por linha" rows={4} />
+                  <Textarea 
+                    id="features" 
+                    placeholder="Digite uma característica por linha" 
+                    rows={4}
+                    value={formData.features}
+                    onChange={handleInputChange}
+                  />
                 </div>
                 <div className="pt-4 flex justify-end">
-                  <Button onClick={() => setIsAddServiceOpen(false)}>
+                  <Button onClick={handleAddService}>
                     Salvar Serviço
                   </Button>
                 </div>
+              </div>
+            </DialogContent>
+          </Dialog>
+          
+          {/* Edit Service Dialog */}
+          <Dialog open={isEditServiceOpen} onOpenChange={setIsEditServiceOpen}>
+            <DialogContent className="sm:max-w-xl">
+              <DialogHeader>
+                <DialogTitle>Editar Serviço</DialogTitle>
+                <DialogDescription>Atualize os detalhes do serviço</DialogDescription>
+              </DialogHeader>
+              <div className="space-y-4 py-2">
+                <div className="space-y-2">
+                  <Label htmlFor="name">Nome do Serviço</Label>
+                  <Input 
+                    id="name" 
+                    value={formData.name}
+                    onChange={handleInputChange}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="category">Categoria</Label>
+                  <Input 
+                    id="category" 
+                    value={formData.category}
+                    onChange={handleInputChange}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="description">Descrição</Label>
+                  <Textarea 
+                    id="description" 
+                    rows={3}
+                    value={formData.description}
+                    onChange={handleInputChange}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="price">Preço (R$)</Label>
+                  <Input 
+                    id="price" 
+                    type="number" 
+                    value={formData.price}
+                    onChange={handleInputChange}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="features">Características (uma por linha)</Label>
+                  <Textarea 
+                    id="features" 
+                    rows={4}
+                    value={formData.features}
+                    onChange={handleInputChange}
+                  />
+                </div>
+                <div className="pt-4 flex justify-end">
+                  <Button onClick={handleSaveEdit}>
+                    Atualizar Serviço
+                  </Button>
+                </div>
+              </div>
+            </DialogContent>
+          </Dialog>
+          
+          {/* Delete Confirmation Dialog */}
+          <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+            <DialogContent className="sm:max-w-md">
+              <DialogHeader>
+                <DialogTitle>Confirmar Exclusão</DialogTitle>
+                <DialogDescription>
+                  Tem certeza que deseja excluir o serviço "{currentService?.name}"? 
+                  Esta ação não pode ser desfeita.
+                </DialogDescription>
+              </DialogHeader>
+              <div className="flex items-center justify-center p-4">
+                <AlertTriangle className="size-16 text-destructive opacity-80" />
+              </div>
+              <div className="flex justify-end gap-2">
+                <Button variant="outline" onClick={() => setIsDeleteDialogOpen(false)}>
+                  Cancelar
+                </Button>
+                <Button variant="destructive" onClick={handleConfirmDelete}>
+                  Excluir
+                </Button>
               </div>
             </DialogContent>
           </Dialog>
@@ -222,9 +450,8 @@ const Services = () => {
                 price={service.price}
                 category={service.category}
                 features={service.features}
-                onEdit={() => {
-                  // Handle edit functionality
-                }}
+                onEdit={() => handleEditService(service)}
+                onDelete={() => handleDeleteClick(service)}
               />
             ))}
           </div>

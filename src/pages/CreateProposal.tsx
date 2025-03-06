@@ -11,7 +11,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Checkbox } from '@/components/ui/checkbox';
-import { AlertCircle, ArrowLeft, Eye, Save, SendHorizontal, Plus, Trash2, FileText } from 'lucide-react';
+import { AlertCircle, ArrowLeft, Eye, Save, SendHorizontal, Plus, Trash2, FileText, Edit2 } from 'lucide-react';
 
 // Serviços disponíveis para seleção
 const availableServices = [
@@ -38,8 +38,10 @@ interface SelectedService {
   name: string;
   description: string;
   price: number;
+  originalPrice: number; // Store the original price for reference
   quantity: number;
   observations?: string;
+  customPrice?: boolean; // Flag to indicate if price was customized
 }
 
 const CreateProposal = () => {
@@ -57,6 +59,10 @@ const CreateProposal = () => {
   const [taxPercentage, setTaxPercentage] = useState<string>('0');
   const [includeTax, setIncludeTax] = useState(false);
   const [paymentTerms, setPaymentTerms] = useState('Pagamento em até 15 dias após a aprovação da proposta.');
+  // Track which service is being edited
+  const [editingServicePrice, setEditingServicePrice] = useState<number | null>(null);
+  // Store temporary price when editing
+  const [tempPrice, setTempPrice] = useState<string>('');
   
   // Cálculos de valores
   const subtotal = selectedServices.reduce((acc, service) => acc + (service.price * service.quantity), 0);
@@ -72,8 +78,10 @@ const CreateProposal = () => {
     
     const newService: SelectedService = {
       ...serviceToAdd,
+      originalPrice: serviceToAdd.price, // Store original price
       quantity: 1,
-      observations: ''
+      observations: '',
+      customPrice: false
     };
     
     setSelectedServices([...selectedServices, newService]);
@@ -97,6 +105,46 @@ const CreateProposal = () => {
     const updatedServices = [...selectedServices];
     updatedServices[index].observations = observations;
     setSelectedServices(updatedServices);
+  };
+
+  // New functions for price editing
+  const startEditingPrice = (index: number) => {
+    setEditingServicePrice(index);
+    setTempPrice(selectedServices[index].price.toString());
+  };
+
+  const cancelEditingPrice = () => {
+    setEditingServicePrice(null);
+    setTempPrice('');
+  };
+
+  const saveEditedPrice = (index: number) => {
+    const newPrice = parseFloat(tempPrice);
+    if (isNaN(newPrice) || newPrice <= 0) {
+      toast({
+        title: "Preço inválido",
+        description: "Por favor, insira um valor válido maior que zero.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const updatedServices = [...selectedServices];
+    updatedServices[index].price = newPrice;
+    updatedServices[index].customPrice = newPrice !== updatedServices[index].originalPrice;
+    setSelectedServices(updatedServices);
+    setEditingServicePrice(null);
+  };
+
+  const resetToOriginalPrice = (index: number) => {
+    const updatedServices = [...selectedServices];
+    updatedServices[index].price = updatedServices[index].originalPrice;
+    updatedServices[index].customPrice = false;
+    setSelectedServices(updatedServices);
+    toast({
+      title: "Preço restaurado",
+      description: "O preço foi restaurado para o valor original.",
+    });
   };
   
   // Função para salvar a proposta
@@ -343,12 +391,64 @@ const CreateProposal = () => {
                               </div>
                             </div>
                             <div className="w-2/3">
-                              <Label htmlFor={`price-${index}`}>Valor Total</Label>
-                              <Input 
-                                id={`price-${index}`} 
-                                value={new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(service.price * service.quantity)}
-                                disabled
-                              />
+                              <div className="flex items-center justify-between">
+                                <Label htmlFor={`price-${index}`}>
+                                  Valor {service.customPrice && <span className="text-xs text-primary">(Personalizado)</span>}
+                                </Label>
+                                {service.customPrice && (
+                                  <Button 
+                                    variant="ghost" 
+                                    size="sm" 
+                                    className="h-6 text-xs"
+                                    onClick={() => resetToOriginalPrice(index)}
+                                  >
+                                    Restaurar valor original
+                                  </Button>
+                                )}
+                              </div>
+                              
+                              {editingServicePrice === index ? (
+                                <div className="flex items-center gap-2">
+                                  <Input 
+                                    id={`price-edit-${index}`} 
+                                    type="number"
+                                    value={tempPrice}
+                                    onChange={(e) => setTempPrice(e.target.value)}
+                                    className="flex-1"
+                                  />
+                                  <Button 
+                                    size="sm" 
+                                    onClick={() => saveEditedPrice(index)}
+                                    className="whitespace-nowrap"
+                                  >
+                                    Salvar
+                                  </Button>
+                                  <Button 
+                                    size="sm" 
+                                    variant="ghost" 
+                                    onClick={cancelEditingPrice}
+                                  >
+                                    Cancelar
+                                  </Button>
+                                </div>
+                              ) : (
+                                <div className="flex items-center gap-2">
+                                  <Input 
+                                    id={`price-${index}`} 
+                                    value={new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(service.price * service.quantity)}
+                                    disabled
+                                    className="flex-1"
+                                  />
+                                  <Button 
+                                    variant="outline" 
+                                    size="icon"
+                                    onClick={() => startEditingPrice(index)}
+                                    title="Editar preço"
+                                  >
+                                    <Edit2 className="size-4" />
+                                  </Button>
+                                </div>
+                              )}
                             </div>
                           </div>
                           <div>

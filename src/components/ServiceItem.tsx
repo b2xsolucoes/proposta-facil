@@ -23,6 +23,7 @@ interface ServiceProps {
   isSelected?: boolean;
   onSelect?: () => void;
   onEdit?: () => void;
+  onDelete?: () => void;
 }
 
 const ServiceItem = ({ 
@@ -34,7 +35,8 @@ const ServiceItem = ({
   features,
   isSelected,
   onSelect,
-  onEdit
+  onEdit,
+  onDelete
 }: ServiceProps) => {
   const [isHovered, setIsHovered] = useState(false);
   
@@ -69,7 +71,9 @@ const ServiceItem = ({
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
                 <DropdownMenuItem onClick={onEdit}>Editar</DropdownMenuItem>
-                <DropdownMenuItem className="text-destructive">Excluir</DropdownMenuItem>
+                {onDelete && (
+                  <DropdownMenuItem onClick={onDelete} className="text-destructive">Excluir</DropdownMenuItem>
+                )}
               </DropdownMenuContent>
             </DropdownMenu>
           )}
