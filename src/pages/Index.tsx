@@ -1,8 +1,8 @@
-
 import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
+import Header from '@/components/Header';
 import { 
   FileText, 
   LayoutDashboard, 
@@ -59,6 +59,7 @@ const Index = () => {
 
   return (
     <div className="min-h-screen flex flex-col">
+      <Header />
       {/* Hero Section */}
       <section className="bg-gradient-to-b from-background to-secondary/30 py-20 px-4">
         <div className="container mx-auto max-w-6xl">
