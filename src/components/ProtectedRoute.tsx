@@ -1,7 +1,7 @@
 
 import { useEffect } from 'react';
 import { Navigate } from 'react-router-dom';
-import { useAuth } from '@/contexts/AuthContext';
+import { useAuth } from '@/contexts/auth';
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
@@ -29,4 +29,3 @@ const ProtectedRoute = ({ children, requireAdmin = false }: ProtectedRouteProps)
 };
 
 export default ProtectedRoute;
-

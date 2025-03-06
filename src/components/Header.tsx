@@ -2,7 +2,7 @@
 import { Button } from "@/components/ui/button";
 import { LogIn, LogOut, User } from "lucide-react";
 import { Link } from "react-router-dom";
-import { useAuth } from "@/contexts/AuthContext";
+import { useAuth } from "@/contexts/auth";
 
 const Header = () => {
   const { user, signOut } = useAuth();
@@ -38,4 +38,3 @@ const Header = () => {
 };
 
 export default Header;
-
