@@ -12,7 +12,7 @@ import Clients from "./pages/Clients";
 import NotFound from "./pages/NotFound";
 import Login from "./pages/Login";
 import Admin from "./pages/Admin";
-import { AuthProvider } from "./contexts/AuthContext";
+import { AuthProvider } from "./contexts/auth";
 import ProtectedRoute from "./components/ProtectedRoute";
 
 const queryClient = new QueryClient();
