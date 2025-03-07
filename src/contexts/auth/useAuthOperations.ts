@@ -37,9 +37,17 @@ export const useAuthOperations = () => {
     try {
       setLoading(true);
       
+      // Get the current user's email
+      const { data: userData } = await supabase.auth.getUser();
+      const email = userData?.user?.email || '';
+      
+      if (!email) {
+        throw new Error('Usuário não encontrado');
+      }
+      
       // First verify the current password by attempting to sign in
-      const { data: { user }, error: signInError } = await supabase.auth.signInWithPassword({
-        email: supabase.auth.getUser().then(({ data }) => data.user?.email || ''),
+      const { error: signInError } = await supabase.auth.signInWithPassword({
+        email: email,
         password: currentPassword,
       });
       
