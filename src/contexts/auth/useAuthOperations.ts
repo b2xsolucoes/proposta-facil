@@ -111,7 +111,14 @@ export const useAuthOperations = () => {
         title: 'Login realizado com sucesso',
         description: 'Bem-vindo ao PropostaApp!',
       });
-      navigate('/dashboard');
+      
+      // If it's the master user, only allow access to dashboard
+      if (isMasterUser) {
+        navigate('/dashboard');
+      } else {
+        // For normal users, navigate to the dashboard as usual
+        navigate('/dashboard');
+      }
       
       return { isAdmin: userData.role === 'admin' };
     } catch (error: any) {
