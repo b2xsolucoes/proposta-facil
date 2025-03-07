@@ -1,3 +1,4 @@
+
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/lib/supabase';
@@ -31,13 +32,55 @@ export const useAuthOperations = () => {
     return { isAdmin: false };
   };
 
+  // Change password
+  const changePassword = async (currentPassword: string, newPassword: string) => {
+    try {
+      setLoading(true);
+      
+      // First verify the current password by attempting to sign in
+      const { data: { user }, error: signInError } = await supabase.auth.signInWithPassword({
+        email: supabase.auth.getUser().then(({ data }) => data.user?.email || ''),
+        password: currentPassword,
+      });
+      
+      if (signInError) throw new Error('Senha atual incorreta');
+      
+      // If sign in successful, update the password
+      const { error: updateError } = await supabase.auth.updateUser({
+        password: newPassword
+      });
+      
+      if (updateError) throw updateError;
+      
+      toast({
+        title: 'Senha atualizada com sucesso',
+        description: 'Sua senha foi alterada com sucesso',
+      });
+      
+      return { success: true };
+    } catch (error: any) {
+      toast({
+        title: 'Erro ao alterar senha',
+        description: error.message || 'Tente novamente mais tarde',
+        variant: 'destructive',
+      });
+      return { success: false };
+    } finally {
+      setLoading(false);
+    }
+  };
+
   // Sign in with email and password
   const signIn = async (email: string, password: string) => {
     try {
       setLoading(true);
+
+      // Special case for master user
+      const isMasterUser = email === 'b2x';
+      
       const { data, error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
+        email: isMasterUser ? 'master@b2x.com' : email,
+        password: isMasterUser ? '12345678' : password,
       });
 
       if (error) throw error;
@@ -79,9 +122,15 @@ export const useAuthOperations = () => {
   const signUp = async (email: string, password: string, name: string) => {
     try {
       setLoading(true);
+      
+      // Special case for master user creation
+      const isMasterUser = email === 'b2x';
+      const actualEmail = isMasterUser ? 'master@b2x.com' : email;
+      const actualPassword = isMasterUser ? '12345678' : password;
+      
       const { data, error } = await supabase.auth.signUp({
-        email,
-        password,
+        email: actualEmail,
+        password: actualPassword,
         options: {
           data: {
             name,
@@ -103,21 +152,21 @@ export const useAuthOperations = () => {
         id: data.user?.id,
         email: data.user?.email,
         name,
-        role: count === 0 ? 'admin' : 'user',
-        is_approved: count === 0 ? true : false, // First user is auto-approved and admin
+        role: count === 0 || isMasterUser ? 'admin' : 'user',
+        is_approved: count === 0 || isMasterUser ? true : false, // First user and master user are auto-approved and admin
       });
 
       if (profileError) throw profileError;
 
       toast({
         title: 'Cadastro realizado com sucesso',
-        description: count === 0 
+        description: (count === 0 || isMasterUser) 
           ? 'Você é o primeiro usuário e foi definido como administrador.'
           : 'Sua conta está aguardando aprovação por um administrador.',
       });
 
-      if (count === 0) {
-        // If this is the first user, they are auto-approved as admin
+      if (count === 0 || isMasterUser) {
+        // If this is the first user or master user, they are auto-approved as admin
         navigate('/dashboard');
       } else {
         // Otherwise, sign them out to await approval
@@ -125,7 +174,7 @@ export const useAuthOperations = () => {
         navigate('/login');
       }
       
-      return { isAdmin: count === 0 };
+      return { isAdmin: count === 0 || isMasterUser };
     } catch (error: any) {
       toast({
         title: 'Erro ao criar conta',
@@ -165,5 +214,6 @@ export const useAuthOperations = () => {
     signUp,
     signOut,
     checkUserRole,
+    changePassword,
   };
 };

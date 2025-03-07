@@ -9,4 +9,5 @@ export type AuthContextType = {
   signUp: (email: string, password: string, name: string) => Promise<{ isAdmin: boolean }>;
   signOut: () => Promise<void>;
   isAdmin: boolean;
+  changePassword?: (currentPassword: string, newPassword: string) => Promise<{ success: boolean }>;
 };
