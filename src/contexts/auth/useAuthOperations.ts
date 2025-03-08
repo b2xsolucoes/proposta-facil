@@ -81,6 +81,8 @@ export const useAuthOperations = () => {
   const signUp = async (email: string, password: string, name: string) => {
     try {
       setLoading(true);
+      
+      // First, create the auth user
       const { data, error } = await supabase.auth.signUp({
         email,
         password,
@@ -100,16 +102,29 @@ export const useAuthOperations = () => {
 
       if (countError) throw countError;
 
-      // Create user profile in the users table
-      const { error: profileError } = await supabase.from('users').insert({
-        id: data.user?.id,
-        email: data.user?.email,
-        name,
-        role: count === 0 ? 'admin' : 'user',
-        is_approved: count === 0 ? true : false, // First user is auto-approved and admin
-      });
-
-      if (profileError) throw profileError;
+      // The trigger function should create the user profile, but let's make sure
+      // by explicitly creating it if it doesn't exist after a short delay
+      setTimeout(async () => {
+        // Check if user profile was created by the trigger
+        const { data: existingUser } = await supabase
+          .from('users')
+          .select('id')
+          .eq('id', data.user?.id)
+          .single();
+          
+        if (!existingUser) {
+          // Create user profile manually if it doesn't exist
+          const { error: profileError } = await supabase.from('users').insert({
+            id: data.user?.id,
+            email: data.user?.email,
+            name: name,
+            role: count === 0 ? 'admin' : 'user',
+            is_approved: count === 0 ? true : false, // First user is auto-approved and admin
+          });
+          
+          if (profileError) console.error("Error creating user profile:", profileError);
+        }
+      }, 1000);
 
       toast({
         title: 'Cadastro realizado com sucesso',
@@ -134,6 +149,7 @@ export const useAuthOperations = () => {
         description: error.message || 'Tente novamente mais tarde',
         variant: 'destructive',
       });
+      console.error('Signup error details:', error);
       return { isAdmin: false };
     } finally {
       setLoading(false);
