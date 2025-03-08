@@ -82,6 +82,8 @@ export const useAuthOperations = () => {
     try {
       setLoading(true);
       
+      console.log("Starting signup process for:", email, "with name:", name);
+      
       // First, create the auth user
       const { data, error } = await supabase.auth.signUp({
         email,
@@ -93,38 +95,62 @@ export const useAuthOperations = () => {
         },
       });
 
-      if (error) throw error;
+      if (error) {
+        console.error("Auth signup error:", error);
+        throw error;
+      }
+
+      if (!data.user) {
+        throw new Error("Falha ao criar usuário. Nenhum usuário foi retornado pela API.");
+      }
+
+      console.log("Auth user created successfully:", data.user.id);
 
       // Check if there are users already
       const { count, error: countError } = await supabase
         .from('users')
         .select('*', { count: 'exact', head: true });
 
-      if (countError) throw countError;
+      if (countError) {
+        console.error("Error counting users:", countError);
+        throw countError;
+      }
 
-      // The trigger function should create the user profile, but let's make sure
-      // by explicitly creating it if it doesn't exist after a short delay
-      setTimeout(async () => {
-        // Check if user profile was created by the trigger
-        const { data: existingUser } = await supabase
-          .from('users')
-          .select('id')
-          .eq('id', data.user?.id)
-          .single();
-          
-        if (!existingUser) {
-          // Create user profile manually if it doesn't exist
-          const { error: profileError } = await supabase.from('users').insert({
-            id: data.user?.id,
-            email: data.user?.email,
-            name: name,
-            role: count === 0 ? 'admin' : 'user',
-            is_approved: count === 0 ? true : false, // First user is auto-approved and admin
-          });
-          
-          if (profileError) console.error("Error creating user profile:", profileError);
+      console.log("Current user count:", count);
+
+      // Explicitly create user profile instead of relying on the trigger
+      try {
+        const { error: profileError } = await supabase.from('users').insert({
+          id: data.user.id,
+          email: data.user.email,
+          name: name,
+          role: count === 0 ? 'admin' : 'user',
+          is_approved: count === 0 ? true : false, // First user is auto-approved and admin
+        });
+        
+        if (profileError) {
+          console.error("Error creating user profile:", profileError);
+          // If there's an error, we'll try to update instead
+          const { error: updateError } = await supabase
+            .from('users')
+            .update({ 
+              email: data.user.email,
+              name: name,
+              role: count === 0 ? 'admin' : 'user',
+              is_approved: count === 0 ? true : false
+            })
+            .eq('id', data.user.id);
+            
+          if (updateError) {
+            console.error("Error updating user profile:", updateError);
+            throw updateError;
+          }
         }
-      }, 1000);
+      } catch (profileError: any) {
+        console.error("Profile creation/update error:", profileError);
+        // We will not throw here to allow the process to continue
+        // The trigger might have created the profile already
+      }
 
       toast({
         title: 'Cadastro realizado com sucesso',
