@@ -7,13 +7,24 @@ import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useAuth } from '@/contexts/auth';
 import Header from '@/components/Header';
+import { 
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 
 const Login = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
   const [activeTab, setActiveTab] = useState('login');
-  const { signIn, signUp, loading } = useAuth();
+  const [resetEmail, setResetEmail] = useState('');
+  const [resetDialogOpen, setResetDialogOpen] = useState(false);
+  const { signIn, signUp, loading, resetPassword } = useAuth();
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -23,6 +34,14 @@ const Login = () => {
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
     await signUp(email, password, name);
+  };
+
+  const handleResetPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const success = await resetPassword(resetEmail);
+    if (success) {
+      setResetDialogOpen(false);
+    }
   };
 
   return (
@@ -61,6 +80,39 @@ const Login = () => {
                   <div className="space-y-2">
                     <div className="flex items-center justify-between">
                       <Label htmlFor="password">Senha</Label>
+                      <Dialog open={resetDialogOpen} onOpenChange={setResetDialogOpen}>
+                        <DialogTrigger asChild>
+                          <Button variant="link" className="px-0 h-auto font-normal text-xs">
+                            Esqueceu a senha?
+                          </Button>
+                        </DialogTrigger>
+                        <DialogContent>
+                          <DialogHeader>
+                            <DialogTitle>Redefinir senha</DialogTitle>
+                            <DialogDescription>
+                              Digite seu e-mail para receber um link de redefinição de senha.
+                            </DialogDescription>
+                          </DialogHeader>
+                          <form onSubmit={handleResetPassword} className="space-y-4">
+                            <div className="space-y-2">
+                              <Label htmlFor="reset-email">Email</Label>
+                              <Input 
+                                id="reset-email" 
+                                type="email" 
+                                placeholder="seu@email.com" 
+                                value={resetEmail}
+                                onChange={(e) => setResetEmail(e.target.value)}
+                                required
+                              />
+                            </div>
+                            <DialogFooter>
+                              <Button type="submit" disabled={loading}>
+                                {loading ? 'Enviando...' : 'Enviar link de redefinição'}
+                              </Button>
+                            </DialogFooter>
+                          </form>
+                        </DialogContent>
+                      </Dialog>
                     </div>
                     <Input 
                       id="password" 

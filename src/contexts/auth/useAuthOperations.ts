@@ -1,3 +1,4 @@
+
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/lib/supabase';
@@ -69,6 +70,7 @@ export const useAuthOperations = () => {
         description: error.message || 'Verifique suas credenciais',
         variant: 'destructive',
       });
+      console.error('Login error details:', error);
       return { isAdmin: false };
     } finally {
       setLoading(false);
@@ -138,6 +140,32 @@ export const useAuthOperations = () => {
     }
   };
 
+  // Reset password (for existing email)
+  const resetPassword = async (email: string) => {
+    try {
+      setLoading(true);
+      const { error } = await supabase.auth.resetPasswordForEmail(email);
+      
+      if (error) throw error;
+      
+      toast({
+        title: 'E-mail enviado',
+        description: 'Verifique sua caixa de entrada para redefinir sua senha.',
+      });
+      
+      return true;
+    } catch (error: any) {
+      toast({
+        title: 'Erro ao enviar e-mail',
+        description: error.message || 'Tente novamente mais tarde',
+        variant: 'destructive',
+      });
+      return false;
+    } finally {
+      setLoading(false);
+    }
+  };
+
   // Sign out
   const signOut = async () => {
     try {
@@ -164,6 +192,7 @@ export const useAuthOperations = () => {
     signIn,
     signUp,
     signOut,
+    resetPassword,
     checkUserRole,
   };
 };

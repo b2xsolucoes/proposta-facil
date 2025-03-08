@@ -8,5 +8,6 @@ export type AuthContextType = {
   signIn: (email: string, password: string) => Promise<{ isAdmin: boolean }>;
   signUp: (email: string, password: string, name: string) => Promise<{ isAdmin: boolean }>;
   signOut: () => Promise<void>;
+  resetPassword: (email: string) => Promise<boolean>;
   isAdmin: boolean;
 };

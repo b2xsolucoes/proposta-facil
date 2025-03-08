@@ -12,7 +12,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [session, setSession] = useState<any | null>(null);
   const [loading, setLoading] = useState(true);
   const [isAdmin, setIsAdmin] = useState(false);
-  const { signIn, signUp, signOut, checkUserRole } = useAuthOperations();
+  const { signIn, signUp, signOut, resetPassword, checkUserRole } = useAuthOperations();
 
   useEffect(() => {
     // Check active session
@@ -51,6 +51,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     signIn,
     signUp,
     signOut,
+    resetPassword,
     isAdmin,
   };
 
