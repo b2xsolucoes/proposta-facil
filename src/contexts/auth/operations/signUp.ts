@@ -15,23 +15,7 @@ export const useSignUp = () => {
       
       console.log("Starting signup process for:", email);
 
-      // First check if the email already exists in auth.users
-      const { data: existingUser } = await supabase
-        .from('users')
-        .select('id, email')
-        .eq('email', email)
-        .single();
-
-      if (existingUser) {
-        toast({
-          title: 'Erro ao criar conta',
-          description: 'Este email já está cadastrado. Por favor, use outro email ou faça login.',
-          variant: 'destructive',
-        });
-        return { isAdmin: false };
-      }
-
-      // If email doesn't exist, proceed with signup
+      // Sign up the user first
       const { data, error } = await supabase.auth.signUp({
         email,
         password,
@@ -63,36 +47,20 @@ export const useSignUp = () => {
         throw countError;
       }
 
-      // Create user profile
-      const { error: profileError } = await supabase.from('users').insert({
-        id: data.user.id,
-        email: data.user.email,
-        name: name,
-        role: count === 0 ? 'admin' : 'user',
-        is_approved: count === 0 ? true : false,
-      });
+      // Attempt to create the user profile
+      const { error: profileError } = await supabase
+        .from('users')
+        .upsert({
+          id: data.user.id,
+          email: data.user.email,
+          name: name,
+          role: count === 0 ? 'admin' : 'user',
+          is_approved: count === 0 ? true : false,
+        }, { onConflict: 'id' });
 
       if (profileError) {
-        console.error("Error creating user profile:", profileError);
-        if (profileError.code === '23505') { // unique_violation
-          // Profile already exists, try to update it
-          const { error: updateError } = await supabase
-            .from('users')
-            .update({
-              email: data.user.email,
-              name: name,
-              role: count === 0 ? 'admin' : 'user',
-              is_approved: count === 0 ? true : false
-            })
-            .eq('id', data.user.id);
-
-          if (updateError) {
-            console.error("Error updating user profile:", updateError);
-            throw updateError;
-          }
-        } else {
-          throw profileError;
-        }
+        console.error("Error creating/updating user profile:", profileError);
+        throw profileError;
       }
 
       toast({
@@ -115,10 +83,14 @@ export const useSignUp = () => {
       
       let errorMessage = 'Tente novamente mais tarde';
       
-      if (error.message?.includes('Email')) {
+      if (error.message?.includes('User already registered')) {
+        errorMessage = 'Este email já está cadastrado. Por favor, use outro email ou faça login.';
+      } else if (error.message?.includes('Email')) {
         errorMessage = 'Email inválido ou já cadastrado';
       } else if (error.message?.includes('Password')) {
         errorMessage = 'A senha deve ter pelo menos 6 caracteres';
+      } else if (error.code === '23505') {
+        errorMessage = 'Este email já está cadastrado. Por favor, use outro email ou faça login.';
       }
       
       toast({
