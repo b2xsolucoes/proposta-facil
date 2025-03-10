@@ -9,6 +9,10 @@ interface ProtectedRouteProps {
 }
 
 const ProtectedRoute = ({ children, requireAdmin = false }: ProtectedRouteProps) => {
+  // Permitindo acesso livre temporariamente
+  return <>{children}</>;
+  
+  /* Autenticação desabilitada temporariamente
   const { user, loading, isAdmin } = useAuth();
   
   if (loading) {
@@ -26,6 +30,7 @@ const ProtectedRoute = ({ children, requireAdmin = false }: ProtectedRouteProps)
   }
 
   return <>{children}</>;
+  */
 };
 
 export default ProtectedRoute;
