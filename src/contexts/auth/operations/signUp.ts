@@ -1,3 +1,4 @@
+
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/lib/supabase';
@@ -36,6 +37,9 @@ export const useSignUp = () => {
 
       console.log("Auth user created successfully:", data.user.id);
 
+      // Wait a moment to ensure the trigger has time to execute
+      await new Promise(resolve => setTimeout(resolve, 1000));
+
       // Check if there are users already
       const { count, error: countError } = await supabase
         .from('users')
@@ -48,8 +52,17 @@ export const useSignUp = () => {
 
       console.log("Current user count:", count);
 
-      // Explicitly create user profile instead of relying on the trigger
-      try {
+      // Check if the user profile was created by the trigger
+      const { data: profileData, error: profileCheckError } = await supabase
+        .from('users')
+        .select('*')
+        .eq('id', data.user.id)
+        .single();
+        
+      if (profileCheckError || !profileData) {
+        console.log("User profile not found, attempting to create manually");
+        
+        // Explicitly create user profile
         const { error: profileError } = await supabase.from('users').insert({
           id: data.user.id,
           email: data.user.email,
@@ -76,10 +89,8 @@ export const useSignUp = () => {
             throw updateError;
           }
         }
-      } catch (profileError: any) {
-        console.error("Profile creation/update error:", profileError);
-        // We will not throw here to allow the process to continue
-        // The trigger might have created the profile already
+      } else {
+        console.log("User profile created by trigger successfully:", profileData);
       }
 
       toast({

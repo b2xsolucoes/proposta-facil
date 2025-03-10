@@ -18,6 +18,7 @@ port = 54324
 [auth]
 enabled = true
 site_url = "http://localhost:3000"
+redirect_urls = ["http://localhost:3000/reset-password-confirm", "https://yourproductionurl.com/reset-password-confirm"]
 
 [functions.reset-password]
 verify_jwt = false
