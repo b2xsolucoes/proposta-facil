@@ -13,9 +13,25 @@ export const useSignUp = () => {
     try {
       setLoading(true);
       
-      console.log("Starting signup process for:", email, "with name:", name);
-      
-      // First, create the auth user
+      console.log("Starting signup process for:", email);
+
+      // First check if the email already exists in auth.users
+      const { data: existingUser } = await supabase
+        .from('users')
+        .select('id, email')
+        .eq('email', email)
+        .single();
+
+      if (existingUser) {
+        toast({
+          title: 'Erro ao criar conta',
+          description: 'Este email já está cadastrado. Por favor, use outro email ou faça login.',
+          variant: 'destructive',
+        });
+        return { isAdmin: false };
+      }
+
+      // If email doesn't exist, proceed with signup
       const { data, error } = await supabase.auth.signUp({
         email,
         password,
@@ -37,9 +53,6 @@ export const useSignUp = () => {
 
       console.log("Auth user created successfully:", data.user.id);
 
-      // Wait a moment to ensure the trigger has time to execute
-      await new Promise(resolve => setTimeout(resolve, 1000));
-
       // Check if there are users already
       const { count, error: countError } = await supabase
         .from('users')
@@ -50,47 +63,36 @@ export const useSignUp = () => {
         throw countError;
       }
 
-      console.log("Current user count:", count);
+      // Create user profile
+      const { error: profileError } = await supabase.from('users').insert({
+        id: data.user.id,
+        email: data.user.email,
+        name: name,
+        role: count === 0 ? 'admin' : 'user',
+        is_approved: count === 0 ? true : false,
+      });
 
-      // Check if the user profile was created by the trigger
-      const { data: profileData, error: profileCheckError } = await supabase
-        .from('users')
-        .select('*')
-        .eq('id', data.user.id)
-        .single();
-        
-      if (profileCheckError || !profileData) {
-        console.log("User profile not found, attempting to create manually");
-        
-        // Explicitly create user profile
-        const { error: profileError } = await supabase.from('users').insert({
-          id: data.user.id,
-          email: data.user.email,
-          name: name,
-          role: count === 0 ? 'admin' : 'user',
-          is_approved: count === 0 ? true : false, // First user is auto-approved and admin
-        });
-        
-        if (profileError) {
-          console.error("Error creating user profile:", profileError);
-          // If there's an error, we'll try to update instead
+      if (profileError) {
+        console.error("Error creating user profile:", profileError);
+        if (profileError.code === '23505') { // unique_violation
+          // Profile already exists, try to update it
           const { error: updateError } = await supabase
             .from('users')
-            .update({ 
+            .update({
               email: data.user.email,
               name: name,
               role: count === 0 ? 'admin' : 'user',
               is_approved: count === 0 ? true : false
             })
             .eq('id', data.user.id);
-            
+
           if (updateError) {
             console.error("Error updating user profile:", updateError);
             throw updateError;
           }
+        } else {
+          throw profileError;
         }
-      } else {
-        console.log("User profile created by trigger successfully:", profileData);
       }
 
       toast({
@@ -101,22 +103,30 @@ export const useSignUp = () => {
       });
 
       if (count === 0) {
-        // If this is the first user, they are auto-approved as admin
         navigate('/dashboard');
       } else {
-        // Otherwise, sign them out to await approval
         await supabase.auth.signOut();
         navigate('/login');
       }
       
       return { isAdmin: count === 0 };
     } catch (error: any) {
+      console.error('Signup error details:', error);
+      
+      let errorMessage = 'Tente novamente mais tarde';
+      
+      if (error.message?.includes('Email')) {
+        errorMessage = 'Email inválido ou já cadastrado';
+      } else if (error.message?.includes('Password')) {
+        errorMessage = 'A senha deve ter pelo menos 6 caracteres';
+      }
+      
       toast({
         title: 'Erro ao criar conta',
-        description: error.message || 'Tente novamente mais tarde',
+        description: errorMessage,
         variant: 'destructive',
       });
-      console.error('Signup error details:', error);
+      
       return { isAdmin: false };
     } finally {
       setLoading(false);
