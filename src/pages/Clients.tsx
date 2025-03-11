@@ -1,5 +1,5 @@
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Layout from '@/components/Layout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -10,53 +10,29 @@ import { Textarea } from '@/components/ui/textarea';
 import { Plus, Search, Mail, Phone, Building2, User2, Pencil, Trash2, MoreHorizontal } from 'lucide-react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { useToast } from '@/hooks/use-toast';
+import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/contexts/auth';
 
-// Mock data for clients
-const mockClients = [
-  { 
-    id: '1', 
-    name: 'Empresa ABC', 
-    contact: 'João Silva',
-    email: 'contato@empresaabc.com', 
-    phone: '(11) 9999-8888',
-    address: 'Av. Paulista, 1000, São Paulo - SP',
-    notes: 'Cliente desde 2020'
-  },
-  { 
-    id: '2', 
-    name: 'Studio Design', 
-    contact: 'Maria Oliveira',
-    email: 'contato@studiodesign.com', 
-    phone: '(11) 8888-7777',
-    address: 'Rua Augusta, 500, São Paulo - SP',
-    notes: 'Interessado em serviços de marketing digital'
-  },
-  { 
-    id: '3', 
-    name: 'Tech Solutions', 
-    contact: 'Pedro Santos',
-    email: 'contato@techsolutions.com', 
-    phone: '(11) 7777-6666',
-    address: 'Av. Brigadeiro Faria Lima, 3000, São Paulo - SP',
-    notes: 'Empresa de tecnologia com foco em software'
-  },
-  { 
-    id: '4', 
-    name: 'Café Gourmet', 
-    contact: 'Ana Ferreira',
-    email: 'contato@cafegourmet.com', 
-    phone: '(11) 6666-5555',
-    address: 'Rua Oscar Freire, 200, São Paulo - SP',
-    notes: 'Pequeno negócio de cafeteria gourmet'
-  },
-];
+// Interface for client data
+interface Client {
+  id: string;
+  name: string;
+  contact: string | null;
+  email: string | null;
+  phone: string | null;
+  address: string | null;
+  notes: string | null;
+}
 
 const Clients = () => {
   const { toast } = useToast();
+  const { user } = useAuth();
+  const [clients, setClients] = useState<Client[]>([]);
+  const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [isAddClientOpen, setIsAddClientOpen] = useState(false);
   const [isEditClientOpen, setIsEditClientOpen] = useState(false);
-  const [currentClient, setCurrentClient] = useState<any>(null);
+  const [currentClient, setCurrentClient] = useState<Client | null>(null);
   const [formData, setFormData] = useState({
     name: '',
     contact: '',
@@ -66,10 +42,44 @@ const Clients = () => {
     notes: ''
   });
   
-  const filteredClients = mockClients.filter(client => {
-    return client.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
-           client.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
-           client.contact.toLowerCase().includes(searchQuery.toLowerCase());
+  // Fetch clients from Supabase
+  const fetchClients = async () => {
+    try {
+      setLoading(true);
+      const { data, error } = await supabase
+        .from('clients')
+        .select('*');
+      
+      if (error) {
+        throw error;
+      }
+      
+      if (data) {
+        setClients(data as Client[]);
+      }
+    } catch (error) {
+      console.error('Error fetching clients:', error);
+      toast({
+        title: "Erro ao carregar clientes",
+        description: "Não foi possível carregar a lista de clientes.",
+        variant: "destructive"
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Load clients on component mount
+  useEffect(() => {
+    fetchClients();
+  }, []);
+
+  const filteredClients = clients.filter(client => {
+    return (
+      client.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
+      (client.email && client.email.toLowerCase().includes(searchQuery.toLowerCase())) ||
+      (client.contact && client.contact.toLowerCase().includes(searchQuery.toLowerCase()))
+    );
   });
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
@@ -77,53 +87,175 @@ const Clients = () => {
     setFormData(prev => ({ ...prev, [id]: value }));
   };
 
-  const handleAddClient = () => {
-    // In a real app, this would send data to an API
-    toast({
-      title: "Cliente adicionado",
-      description: "O cliente foi adicionado com sucesso.",
-    });
-    setIsAddClientOpen(false);
-    // Reset form data
-    setFormData({
-      name: '',
-      contact: '',
-      email: '',
-      phone: '',
-      address: '',
-      notes: ''
-    });
+  const handleAddClient = async () => {
+    try {
+      // Validate required fields
+      if (!formData.name.trim()) {
+        toast({
+          title: "Campo obrigatório",
+          description: "O nome da empresa é obrigatório.",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      // Insert client into Supabase
+      const { data, error } = await supabase
+        .from('clients')
+        .insert([
+          {
+            name: formData.name,
+            contact: formData.contact || null,
+            email: formData.email || null,
+            phone: formData.phone || null,
+            address: formData.address || null,
+            notes: formData.notes || null,
+            user_id: user?.id || '00000000-0000-0000-0000-000000000000' // Fallback for testing
+          }
+        ])
+        .select();
+
+      if (error) {
+        throw error;
+      }
+
+      toast({
+        title: "Cliente adicionado",
+        description: "O cliente foi adicionado com sucesso.",
+      });
+      
+      // Add the new client to the state
+      if (data && data.length > 0) {
+        setClients(prev => [...prev, data[0] as Client]);
+      }
+
+      setIsAddClientOpen(false);
+      
+      // Reset form data
+      setFormData({
+        name: '',
+        contact: '',
+        email: '',
+        phone: '',
+        address: '',
+        notes: ''
+      });
+    } catch (error) {
+      console.error('Error adding client:', error);
+      toast({
+        title: "Erro ao adicionar cliente",
+        description: "Não foi possível adicionar o cliente. Tente novamente mais tarde.",
+        variant: "destructive"
+      });
+    }
   };
 
-  const handleEditClient = (client: any) => {
+  const handleEditClient = (client: Client) => {
     setCurrentClient(client);
     setFormData({
       name: client.name,
-      contact: client.contact,
-      email: client.email,
-      phone: client.phone,
-      address: client.address,
-      notes: client.notes
+      contact: client.contact || '',
+      email: client.email || '',
+      phone: client.phone || '',
+      address: client.address || '',
+      notes: client.notes || ''
     });
     setIsEditClientOpen(true);
   };
 
-  const handleUpdateClient = () => {
-    // In a real app, this would update data via an API
-    toast({
-      title: "Cliente atualizado",
-      description: "As informações do cliente foram atualizadas.",
-    });
-    setIsEditClientOpen(false);
+  const handleUpdateClient = async () => {
+    if (!currentClient) return;
+    
+    try {
+      // Validate required fields
+      if (!formData.name.trim()) {
+        toast({
+          title: "Campo obrigatório",
+          description: "O nome da empresa é obrigatório.",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      // Update client in Supabase
+      const { error } = await supabase
+        .from('clients')
+        .update({
+          name: formData.name,
+          contact: formData.contact || null,
+          email: formData.email || null,
+          phone: formData.phone || null,
+          address: formData.address || null,
+          notes: formData.notes || null,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', currentClient.id);
+
+      if (error) {
+        throw error;
+      }
+
+      // Update client in state
+      setClients(prev => 
+        prev.map(client => 
+          client.id === currentClient.id 
+            ? { 
+                ...client, 
+                name: formData.name,
+                contact: formData.contact || null,
+                email: formData.email || null,
+                phone: formData.phone || null,
+                address: formData.address || null,
+                notes: formData.notes || null
+              } 
+            : client
+        )
+      );
+
+      toast({
+        title: "Cliente atualizado",
+        description: "As informações do cliente foram atualizadas.",
+      });
+      
+      setIsEditClientOpen(false);
+    } catch (error) {
+      console.error('Error updating client:', error);
+      toast({
+        title: "Erro ao atualizar cliente",
+        description: "Não foi possível atualizar as informações do cliente.",
+        variant: "destructive"
+      });
+    }
   };
 
-  const handleDeleteClient = (clientId: string) => {
-    // In a real app, this would delete data via an API
-    toast({
-      title: "Cliente removido",
-      description: "O cliente foi removido com sucesso.",
-      variant: "destructive"
-    });
+  const handleDeleteClient = async (clientId: string) => {
+    try {
+      // Delete client from Supabase
+      const { error } = await supabase
+        .from('clients')
+        .delete()
+        .eq('id', clientId);
+
+      if (error) {
+        throw error;
+      }
+
+      // Remove client from state
+      setClients(prev => prev.filter(client => client.id !== clientId));
+
+      toast({
+        title: "Cliente removido",
+        description: "O cliente foi removido com sucesso.",
+        variant: "destructive"
+      });
+    } catch (error) {
+      console.error('Error deleting client:', error);
+      toast({
+        title: "Erro ao remover cliente",
+        description: "Não foi possível remover o cliente.",
+        variant: "destructive"
+      });
+    }
   };
 
   return (
@@ -296,7 +428,11 @@ const Clients = () => {
           </div>
         </div>
         
-        {filteredClients.length === 0 ? (
+        {loading ? (
+          <div className="flex items-center justify-center p-12">
+            <div className="h-8 w-8 animate-spin rounded-full border-b-2 border-primary"></div>
+          </div>
+        ) : filteredClients.length === 0 ? (
           <div className="flex flex-col items-center justify-center bg-secondary/50 rounded-lg p-12 text-center">
             <User2 className="size-12 text-muted-foreground mb-4" />
             <h3 className="text-xl font-medium mb-2">Nenhum cliente encontrado</h3>
@@ -338,22 +474,30 @@ const Clients = () => {
                   </div>
                   
                   <div className="mt-4 space-y-2">
-                    <div className="flex items-center text-sm text-muted-foreground">
-                      <User2 className="size-4 mr-2" />
-                      <span>{client.contact}</span>
-                    </div>
-                    <div className="flex items-center text-sm text-muted-foreground">
-                      <Mail className="size-4 mr-2" />
-                      <span>{client.email}</span>
-                    </div>
-                    <div className="flex items-center text-sm text-muted-foreground">
-                      <Phone className="size-4 mr-2" />
-                      <span>{client.phone}</span>
-                    </div>
-                    <div className="flex items-start text-sm text-muted-foreground">
-                      <Building2 className="size-4 mr-2 mt-0.5" />
-                      <span>{client.address}</span>
-                    </div>
+                    {client.contact && (
+                      <div className="flex items-center text-sm text-muted-foreground">
+                        <User2 className="size-4 mr-2" />
+                        <span>{client.contact}</span>
+                      </div>
+                    )}
+                    {client.email && (
+                      <div className="flex items-center text-sm text-muted-foreground">
+                        <Mail className="size-4 mr-2" />
+                        <span>{client.email}</span>
+                      </div>
+                    )}
+                    {client.phone && (
+                      <div className="flex items-center text-sm text-muted-foreground">
+                        <Phone className="size-4 mr-2" />
+                        <span>{client.phone}</span>
+                      </div>
+                    )}
+                    {client.address && (
+                      <div className="flex items-start text-sm text-muted-foreground">
+                        <Building2 className="size-4 mr-2 mt-0.5" />
+                        <span>{client.address}</span>
+                      </div>
+                    )}
                   </div>
                   
                   {client.notes && (
