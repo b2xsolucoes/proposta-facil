@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import Layout from '@/components/Layout';
 import { Button } from '@/components/ui/button';
@@ -16,11 +17,13 @@ import { useAuth } from '@/contexts/auth';
 interface Client {
   id: string;
   name: string;
-  contact: string | null;
   email: string | null;
   phone: string | null;
   address: string | null;
   notes: string | null;
+  created_at?: string;
+  updated_at?: string;
+  user_id?: string;
 }
 
 const Clients = () => {
@@ -34,7 +37,6 @@ const Clients = () => {
   const [currentClient, setCurrentClient] = useState<Client | null>(null);
   const [formData, setFormData] = useState({
     name: '',
-    contact: '',
     email: '',
     phone: '',
     address: '',
@@ -76,8 +78,7 @@ const Clients = () => {
   const filteredClients = clients.filter(client => {
     return (
       client.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
-      (client.email && client.email.toLowerCase().includes(searchQuery.toLowerCase())) ||
-      (client.contact && client.contact.toLowerCase().includes(searchQuery.toLowerCase()))
+      (client.email && client.email.toLowerCase().includes(searchQuery.toLowerCase()))
     );
   });
 
@@ -104,7 +105,6 @@ const Clients = () => {
         .insert([
           {
             name: formData.name,
-            contact: formData.contact || null,
             email: formData.email || null,
             phone: formData.phone || null,
             address: formData.address || null,
@@ -133,7 +133,6 @@ const Clients = () => {
       // Reset form data
       setFormData({
         name: '',
-        contact: '',
         email: '',
         phone: '',
         address: '',
@@ -153,7 +152,6 @@ const Clients = () => {
     setCurrentClient(client);
     setFormData({
       name: client.name,
-      contact: client.contact || '',
       email: client.email || '',
       phone: client.phone || '',
       address: client.address || '',
@@ -181,7 +179,6 @@ const Clients = () => {
         .from('clients')
         .update({
           name: formData.name,
-          contact: formData.contact || null,
           email: formData.email || null,
           phone: formData.phone || null,
           address: formData.address || null,
@@ -201,7 +198,6 @@ const Clients = () => {
             ? { 
                 ...client, 
                 name: formData.name,
-                contact: formData.contact || null,
                 email: formData.email || null,
                 phone: formData.phone || null,
                 address: formData.address || null,
@@ -288,15 +284,6 @@ const Clients = () => {
                     onChange={handleInputChange}
                   />
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="contact">Pessoa de Contato</Label>
-                  <Input 
-                    id="contact" 
-                    placeholder="Ex: João Silva" 
-                    value={formData.contact}
-                    onChange={handleInputChange}
-                  />
-                </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="email">Email</Label>
@@ -358,14 +345,6 @@ const Clients = () => {
                   <Input 
                     id="name" 
                     value={formData.name}
-                    onChange={handleInputChange}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="contact">Pessoa de Contato</Label>
-                  <Input 
-                    id="contact" 
-                    value={formData.contact}
                     onChange={handleInputChange}
                   />
                 </div>
@@ -473,12 +452,6 @@ const Clients = () => {
                   </div>
                   
                   <div className="mt-4 space-y-2">
-                    {client.contact && (
-                      <div className="flex items-center text-sm text-muted-foreground">
-                        <User2 className="size-4 mr-2" />
-                        <span>{client.contact}</span>
-                      </div>
-                    )}
                     {client.email && (
                       <div className="flex items-center text-sm text-muted-foreground">
                         <Mail className="size-4 mr-2" />
