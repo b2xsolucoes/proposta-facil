@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import Layout from '@/components/Layout';
 import { Button } from '@/components/ui/button';
@@ -13,7 +12,7 @@ import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/auth';
 
-// Interface for client data
+// Update the Client interface to match our database schema
 interface Client {
   id: string;
   name: string;
