@@ -1,5 +1,4 @@
-
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Layout from '@/components/Layout';
 import ServiceItem from '@/components/ServiceItem';
 import { Button } from '@/components/ui/button';
@@ -10,107 +9,31 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Plus, Search, Settings, Filter, AlertTriangle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { supabase } from '@/lib/supabase';
+import { useAuth } from '@/contexts/auth';
 
 // Interface for Service
 interface Service {
   id: string;
   name: string;
-  description: string;
+  description: string | null;
   price: number;
   category: string;
   features: string[];
+  user_id?: string;
+  created_at?: string;
+  updated_at?: string;
 }
-
-// Mock data for services
-const initialServices = [
-  { 
-    id: '1', 
-    name: 'Gestão de Google Ads', 
-    description: 'Gestão completa de campanhas no Google Ads para aumentar o tráfego qualificado e conversões.', 
-    price: 2500, 
-    category: 'Marketing Digital',
-    features: [
-      'Configuração de campanhas',
-      'Otimização contínua',
-      'Relatórios semanais',
-      'Acompanhamento de métricas'
-    ]
-  },
-  { 
-    id: '2', 
-    name: 'Gestão de Redes Sociais', 
-    description: 'Criação de conteúdo e gestão de redes sociais para aumentar o engajamento e a presença digital.', 
-    price: 1800, 
-    category: 'Marketing Digital',
-    features: [
-      'Calendário editorial',
-      'Criação de conteúdo',
-      'Gestão de comunidade',
-      'Relatório mensal'
-    ]
-  },
-  { 
-    id: '3', 
-    name: 'SEO - Otimização para Buscas', 
-    description: 'Otimização de site para mecanismos de busca para aumentar o tráfego orgânico e visibilidade.', 
-    price: 2000, 
-    category: 'Marketing Digital',
-    features: [
-      'Análise de palavras-chave',
-      'Otimização on-page',
-      'Construção de backlinks',
-      'Relatório mensal'
-    ]
-  },
-  { 
-    id: '4', 
-    name: 'Identidade Visual', 
-    description: 'Criação de identidade visual completa para sua marca se destacar no mercado.', 
-    price: 4500, 
-    category: 'Branding',
-    features: [
-      'Logo e variações',
-      'Paleta de cores',
-      'Tipografia',
-      'Manual de marca'
-    ]
-  },
-  { 
-    id: '5', 
-    name: 'Website Institucional', 
-    description: 'Desenvolvimento de website responsivo e otimizado para SEO com foco em conversão.', 
-    price: 6000, 
-    category: 'Desenvolvimento',
-    features: [
-      'Design personalizado',
-      'Responsivo para dispositivos móveis',
-      'Otimizado para SEO',
-      'Integração com Google Analytics'
-    ]
-  },
-  { 
-    id: '6', 
-    name: 'E-mail Marketing', 
-    description: 'Criação e gestão de campanhas de e-mail marketing para nutrir leads e aumentar vendas.', 
-    price: 1500, 
-    category: 'Marketing Digital',
-    features: [
-      'Criação de templates',
-      'Segmentação de listas',
-      'Envio de campanhas',
-      'Análise de métricas'
-    ]
-  },
-];
 
 const Services = () => {
   const { toast } = useToast();
+  const { user } = useAuth();
   const [searchQuery, setSearchQuery] = useState('');
   const [isAddServiceOpen, setIsAddServiceOpen] = useState(false);
   const [isEditServiceOpen, setIsEditServiceOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [activeCategory, setActiveCategory] = useState('all');
-  const [services, setServices] = useState<Service[]>(initialServices);
+  const [services, setServices] = useState<Service[]>([]);
   const [currentService, setCurrentService] = useState<Service | null>(null);
   
   // Form state for adding/editing
@@ -121,6 +44,39 @@ const Services = () => {
     price: '',
     features: ''
   });
+
+  // Fetch services from Supabase
+  useEffect(() => {
+    const fetchServices = async () => {
+      if (!user) return;
+      
+      const { data, error } = await supabase
+        .from('services')
+        .select('*')
+        .eq('user_id', user.id);
+      
+      if (error) {
+        console.error('Error fetching services:', error);
+        toast({
+          title: "Erro ao carregar serviços",
+          description: error.message,
+          variant: "destructive"
+        });
+        return;
+      }
+      
+      // Transform data to include features
+      const transformedData = data.map(service => ({
+        ...service,
+        category: service.category || 'Outros', // Default category if not specified
+        features: service.features ? JSON.parse(service.features) : []
+      }));
+      
+      setServices(transformedData);
+    };
+    
+    fetchServices();
+  }, [user, toast]);
   
   const filteredServices = services.filter(service => {
     const queryMatch = service.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
@@ -153,30 +109,51 @@ const Services = () => {
   };
 
   // Save edited service
-  const handleSaveEdit = () => {
-    if (!currentService) return;
+  const handleSaveEdit = async () => {
+    if (!currentService || !user) return;
     
-    const updatedServices = services.map(service => {
-      if (service.id === currentService.id) {
-        return {
-          ...service,
-          name: formData.name,
-          category: formData.category,
-          description: formData.description,
-          price: parseFloat(formData.price),
-          features: formData.features.split('\n').filter(f => f.trim() !== '')
-        };
-      }
-      return service;
-    });
-    
-    setServices(updatedServices);
-    setIsEditServiceOpen(false);
-    
-    toast({
-      title: "Serviço atualizado",
-      description: "O serviço foi atualizado com sucesso.",
-    });
+    try {
+      const updatedService = {
+        name: formData.name,
+        category: formData.category,
+        description: formData.description,
+        price: parseFloat(formData.price),
+        features: JSON.stringify(formData.features.split('\n').filter(f => f.trim() !== ''))
+      };
+      
+      const { error } = await supabase
+        .from('services')
+        .update(updatedService)
+        .eq('id', currentService.id)
+        .eq('user_id', user.id);
+      
+      if (error) throw error;
+      
+      const updatedServices = services.map(service => {
+        if (service.id === currentService.id) {
+          return {
+            ...service,
+            ...updatedService,
+            features: formData.features.split('\n').filter(f => f.trim() !== '')
+          };
+        }
+        return service;
+      });
+      
+      setServices(updatedServices);
+      setIsEditServiceOpen(false);
+      
+      toast({
+        title: "Serviço atualizado",
+        description: "O serviço foi atualizado com sucesso.",
+      });
+    } catch (error: any) {
+      toast({
+        title: "Erro ao atualizar serviço",
+        description: error.message,
+        variant: "destructive"
+      });
+    }
   };
 
   // Open delete confirmation dialog
@@ -186,47 +163,88 @@ const Services = () => {
   };
 
   // Confirm deletion
-  const handleConfirmDelete = () => {
-    if (!currentService) return;
+  const handleConfirmDelete = async () => {
+    if (!currentService || !user) return;
     
-    const updatedServices = services.filter(service => service.id !== currentService.id);
-    setServices(updatedServices);
-    setIsDeleteDialogOpen(false);
-    
-    toast({
-      title: "Serviço excluído",
-      description: "O serviço foi excluído com sucesso.",
-      variant: "destructive"
-    });
+    try {
+      const { error } = await supabase
+        .from('services')
+        .delete()
+        .eq('id', currentService.id)
+        .eq('user_id', user.id);
+      
+      if (error) throw error;
+      
+      const updatedServices = services.filter(service => service.id !== currentService.id);
+      setServices(updatedServices);
+      setIsDeleteDialogOpen(false);
+      
+      toast({
+        title: "Serviço excluído",
+        description: "O serviço foi excluído com sucesso.",
+        variant: "destructive"
+      });
+    } catch (error: any) {
+      toast({
+        title: "Erro ao excluir serviço",
+        description: error.message,
+        variant: "destructive"
+      });
+    }
   };
 
   // Add new service
-  const handleAddService = () => {
-    const newService: Service = {
-      id: (services.length + 1).toString(),
-      name: formData.name,
-      category: formData.category,
-      description: formData.description,
-      price: parseFloat(formData.price) || 0,
-      features: formData.features.split('\n').filter(f => f.trim() !== '')
-    };
+  const handleAddService = async () => {
+    if (!user) return;
     
-    setServices([...services, newService]);
-    setIsAddServiceOpen(false);
-    
-    // Reset form
-    setFormData({
-      name: '',
-      category: '',
-      description: '',
-      price: '',
-      features: ''
-    });
-    
-    toast({
-      title: "Serviço adicionado",
-      description: "O novo serviço foi adicionado com sucesso.",
-    });
+    try {
+      const newService = {
+        name: formData.name,
+        category: formData.category,
+        description: formData.description,
+        price: parseFloat(formData.price) || 0,
+        features: JSON.stringify(formData.features.split('\n').filter(f => f.trim() !== '')),
+        user_id: user.id
+      };
+      
+      const { data, error } = await supabase
+        .from('services')
+        .insert([newService])
+        .select();
+      
+      if (error) throw error;
+      
+      if (data && data.length > 0) {
+        // Add the new service to the state with the right format
+        const addedService = {
+          ...data[0],
+          features: formData.features.split('\n').filter(f => f.trim() !== '')
+        };
+        
+        setServices([...services, addedService]);
+        setIsAddServiceOpen(false);
+        
+        // Reset form
+        setFormData({
+          name: '',
+          category: '',
+          description: '',
+          price: '',
+          features: ''
+        });
+        
+        toast({
+          title: "Serviço adicionado",
+          description: "O novo serviço foi adicionado com sucesso.",
+        });
+      }
+    } catch (error: any) {
+      toast({
+        title: "Erro ao adicionar serviço",
+        description: error.message,
+        variant: "destructive"
+      });
+    }
   };
 
   return (

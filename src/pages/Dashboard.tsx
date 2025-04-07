@@ -1,5 +1,4 @@
-
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Layout from '@/components/Layout';
 import MetricsCard from '@/components/MetricsCard';
 import ProposalStats from '@/components/ProposalStats';
@@ -16,6 +15,9 @@ import {
   Plus
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { supabase } from '@/lib/supabase';
+import { useAuth } from '@/contexts/auth';
+import { useToast } from '@/hooks/use-toast';
 
 const chartData = {
   weekly: [
@@ -37,28 +39,96 @@ const chartData = {
   ],
 };
 
-const recentProposals = [
-  { id: '1', client: 'Empresa ABC', date: '05/06/2023', status: 'aceita', value: 5800 },
-  { id: '2', client: 'Studio Design', date: '02/06/2023', status: 'pendente', value: 3200 },
-  { id: '3', client: 'Tech Solutions', date: '28/05/2023', status: 'rejeitada', value: 7500 },
-  { id: '4', client: 'Café Gourmet', date: '25/05/2023', status: 'aceita', value: 2800 },
-];
+interface Proposal {
+  id: string;
+  client_id: string;
+  title: string;
+  status: string;
+  total_value: number;
+  created_at: string;
+  client_name?: string;
+}
 
 const Dashboard = () => {
   const navigate = useNavigate();
+  const { user } = useAuth();
+  const { toast } = useToast();
+  const [recentProposals, setRecentProposals] = useState<Proposal[]>([]);
+  const [loading, setLoading] = useState(true);
+  
+  useEffect(() => {
+    if (!user) return;
+    
+    const fetchProposals = async () => {
+      setLoading(true);
+      try {
+        const { data: proposalsData, error: proposalsError } = await supabase
+          .from('proposals')
+          .select('id, client_id, title, status, total_value, created_at')
+          .eq('user_id', user.id)
+          .order('created_at', { ascending: false })
+          .limit(5);
+        
+        if (proposalsError) throw proposalsError;
+        
+        if (!proposalsData || proposalsData.length === 0) {
+          setRecentProposals([]);
+          setLoading(false);
+          return;
+        }
+        
+        const clientIds = [...new Set(proposalsData.map(p => p.client_id))];
+        const { data: clientsData, error: clientsError } = await supabase
+          .from('clients')
+          .select('id, name')
+          .in('id', clientIds);
+        
+        if (clientsError) throw clientsError;
+        
+        const proposalsWithClientNames = proposalsData.map(proposal => {
+          const client = clientsData?.find(c => c.id === proposal.client_id);
+          return {
+            ...proposal,
+            client_name: client?.name || 'Cliente desconhecido'
+          };
+        });
+        
+        setRecentProposals(proposalsWithClientNames);
+      } catch (error: any) {
+        console.error('Error fetching proposals:', error);
+        toast({
+          title: "Erro ao carregar propostas",
+          description: error.message,
+          variant: "destructive"
+        });
+      } finally {
+        setLoading(false);
+      }
+    };
+    
+    fetchProposals();
+  }, [user, toast]);
   
   const getStatusBadge = (status: string) => {
     const statusStyles = {
       aceita: "bg-green-100 text-green-800",
       pendente: "bg-yellow-100 text-yellow-800",
       rejeitada: "bg-red-100 text-red-800",
+      draft: "bg-blue-100 text-blue-800"
     };
     
+    const displayStatus = status === 'draft' ? 'rascunho' : status;
+    
     return (
-      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${statusStyles[status as keyof typeof statusStyles]}`}>
-        {status.charAt(0).toUpperCase() + status.slice(1)}
+      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${statusStyles[status as keyof typeof statusStyles] || statusStyles.pendente}`}>
+        {displayStatus.charAt(0).toUpperCase() + displayStatus.slice(1)}
       </span>
     );
+  };
+  
+  const formatDate = (dateString: string) => {
+    const date = new Date(dateString);
+    return date.toLocaleDateString('pt-BR');
   };
   
   return (
@@ -151,39 +221,61 @@ const Dashboard = () => {
             </Button>
           </CardHeader>
           <CardContent>
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead>
-                  <tr className="border-b">
-                    <th className="text-left py-3 px-4 font-medium">Cliente</th>
-                    <th className="text-left py-3 px-4 font-medium">Data</th>
-                    <th className="text-left py-3 px-4 font-medium">Valor</th>
-                    <th className="text-left py-3 px-4 font-medium">Status</th>
-                    <th className="text-right py-3 px-4 font-medium">Ações</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {recentProposals.map((proposal) => (
-                    <tr key={proposal.id} className="border-b hover:bg-secondary/50 transition-all-200">
-                      <td className="py-3 px-4">{proposal.client}</td>
-                      <td className="py-3 px-4">{proposal.date}</td>
-                      <td className="py-3 px-4">
-                        {new Intl.NumberFormat('pt-BR', { 
-                          style: 'currency', 
-                          currency: 'BRL' 
-                        }).format(proposal.value)}
-                      </td>
-                      <td className="py-3 px-4">{getStatusBadge(proposal.status)}</td>
-                      <td className="py-3 px-4 text-right">
-                        <Button variant="ghost" size="sm">
-                          Ver
-                        </Button>
-                      </td>
+            {loading ? (
+              <div className="flex justify-center p-4">
+                <div className="h-8 w-8 animate-spin rounded-full border-b-2 border-primary"></div>
+              </div>
+            ) : recentProposals.length === 0 ? (
+              <div className="text-center p-8 text-muted-foreground">
+                <FileText className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                <p>Nenhuma proposta encontrada</p>
+                <Button 
+                  variant="link" 
+                  className="mt-2" 
+                  onClick={() => navigate('/create-proposal')}
+                >
+                  Criar sua primeira proposta
+                </Button>
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead>
+                    <tr className="border-b">
+                      <th className="text-left py-3 px-4 font-medium">Cliente</th>
+                      <th className="text-left py-3 px-4 font-medium">Data</th>
+                      <th className="text-left py-3 px-4 font-medium">Valor</th>
+                      <th className="text-left py-3 px-4 font-medium">Status</th>
+                      <th className="text-right py-3 px-4 font-medium">Ações</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                  </thead>
+                  <tbody>
+                    {recentProposals.map((proposal) => (
+                      <tr key={proposal.id} className="border-b hover:bg-secondary/50 transition-all-200">
+                        <td className="py-3 px-4">{proposal.client_name}</td>
+                        <td className="py-3 px-4">{formatDate(proposal.created_at)}</td>
+                        <td className="py-3 px-4">
+                          {new Intl.NumberFormat('pt-BR', { 
+                            style: 'currency', 
+                            currency: 'BRL' 
+                          }).format(proposal.total_value)}
+                        </td>
+                        <td className="py-3 px-4">{getStatusBadge(proposal.status)}</td>
+                        <td className="py-3 px-4 text-right">
+                          <Button 
+                            variant="ghost" 
+                            size="sm"
+                            onClick={() => navigate(`/preview-proposal/${proposal.id}`)}
+                          >
+                            Ver
+                          </Button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>
